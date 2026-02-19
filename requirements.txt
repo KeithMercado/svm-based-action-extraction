@@ -1,0 +1,6 @@
+spacy
+numpy
+sounddevice
+scipy
+faster-whisper
+scikit-learn

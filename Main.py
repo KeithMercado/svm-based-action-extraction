@@ -55,6 +55,9 @@ def main():
     global is_recording
     filename = "meeting_recording.wav"
     audio_data = []
+    # redirect to output folder for integrations of done output files
+    # separate with date and time for uniqueness
+    # can be as well a training dataset for the future SVM improvements
 
     print("\n" + "="*60)
     print(" SYSTEM READY: LOCAL TAGLISH TRANSCRIPTION ")
