@@ -1,5 +1,6 @@
 import os
 import spacy
+import torch
 import numpy as np
 import sounddevice as sd
 import scipy.io.wavfile as wav
@@ -8,12 +9,44 @@ import queue
 import time
 from faster_whisper import WhisperModel
 from sklearn.svm import SVC
+from transformers import BartForConditionalGeneration, BartTokenizer
 
 # --- INITIALIZATION ---
 nlp = spacy.load("en_core_web_sm")
 audio_queue = queue.Queue()
 is_recording = True
 fs = 16000  # Standard for Whisper
+
+# --- PHASE 4: ABSTRACTIVE SUMMARIZATION CLASS ---
+class AbstractiveSummarizer:
+    def __init__(self):
+        print("Loading Phase 4: BART Summarization Model (this may take a moment)...")
+        # 'facebook/bart-large-cnn' is the industry standard for abstractive summaries
+        # For a lighter version, use 'sshleifer/distilbart-cnn-12-6'
+        self.model_name = "facebook/bart-large-cnn"
+        self.tokenizer = BartTokenizer.from_pretrained(self.model_name)
+        self.model = BartForConditionalGeneration.from_pretrained(self.model_name)
+
+    def generate_summary(self, text, action_items):
+        # Step 1: Combine context and detected action items for 'Coherence' (Dual-stage)
+        context_with_actions = text
+        if action_items:
+            action_context = " Key tasks identified: " + " ".join(action_items)
+            context_with_actions += action_context
+
+        # Step 2: Tokenize and Generate
+        inputs = self.tokenizer([context_with_actions], max_length=1024, return_tensors="pt", truncation=True)
+        
+        summary_ids = self.model.generate(
+            inputs["input_ids"], 
+            num_beams=4, 
+            min_length=10,  # Lowered to allow condensation
+            max_length=60,  # Tightened to force BART to summarize, not copy
+            length_penalty=2.0,
+            early_stopping=True
+        )
+        
+        return self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
 
 # --- PHASE 3: SVM TRAINING (Mock Data for Thesis) ---
 clf = SVC(kernel='linear')
@@ -25,13 +58,30 @@ clf.fit(train_X, train_y)
 def get_features(sentence):
     text = sentence.lower()
     doc = nlp(text)
-    first_token_pos = doc[0].pos_ if len(doc) > 0 else ""
-    return [
-        1 if 'paki' in text else 0,              # Taglish Politeness
-        1 if 'sige' in text else 0,              # Agreement/Volunteer
-        1 if first_token_pos == "VERB" else 0,   # Imperative Command
-        1 if any(m in text for m in ['need', 'must', 'will']) else 0 # Modals
-    ]
+    
+    # Feature 1: Presence of task keywords (Taglish + Academic English)
+    action_keywords = ['paki', 'sige', 'review', 'read', 'prepare', 'submit', 'expect', 'priority', 'must']
+    has_action_word = 1 if any(word in text for word in action_keywords) else 0
+    
+    # Feature 2: Time/Deadline markers
+    has_deadline = 1 if any(word in text for word in ['due', 'before', 'monday', 'thursday', '2 p.m', 'midnight']) else 0
+    
+    # Feature 3: Starts with Verb (Imperative)
+    starts_with_verb = 1 if (len(doc) > 0 and doc[0].pos_ == "VERB") else 0
+    
+    return [has_action_word, has_deadline, starts_with_verb, 0]
+
+# --- RE-TRAIN SVM WITH BETTER DATA ---
+# Let's give it a few more examples so it understands the academic context
+train_X = [
+    [1, 1, 1, 0], # "Please review the slides before Thursday" (Action)
+    [1, 0, 1, 0], # "Read the article" (Action)
+    [0, 0, 0, 0], # "Alright everyone" (Info)
+    [0, 1, 0, 0], # "The portal is live" (Info)
+    [1, 1, 0, 0], # "Your problem sets are due Monday" (Action)
+]
+train_y = [1, 1, 0, 0, 1] 
+clf.fit(train_X, train_y)
 
 # --- REAL-TIME THREAD (The "Live" Experience) ---
 def real_time_transcription():
@@ -54,6 +104,9 @@ def real_time_transcription():
 def main():
     global is_recording
     filename = "meeting_recording.wav"
+    # MP4 for testing
+    # video_path = r"C:\Users\John Keith Mercado\Downloads\20260221__Alright_e.mp3"
+    summarizer = AbstractiveSummarizer() # Initialize BART
     audio_data = []
     # redirect to output folder for integrations of done output files
     # separate with date and time for uniqueness
@@ -99,49 +152,51 @@ def main():
     print(raw_text)
 
     # --- PHASE 2: TOPIC SEGMENTATION ---
-    print(f"\n" + "█"*60)
-    print(f" PHASE 2: TOPIC SEGMENTATION RESULTS ")
-    print(f"█"*60)
-    
-    # Split text into clean sentences
+    print(f"\n" + "█"*60 + "\n PHASE 2: TOPIC SEGMENTATION \n" + "█"*60)
     sentences = [s.strip() for s in raw_text.replace('so ', '. ').split('.') if len(s) > 5]
-    
-    # Segmenting into Topic Chunks (Every 5 sentences)
     topic_segments = [sentences[i:i + 5] for i in range(0, len(sentences), 5)]
-    
     for i, segment in enumerate(topic_segments):
         print(f"\n[TOPIC CHUNK {i+1}]")
-        for line in segment:
-            print(f"  • {line}")
+        for line in segment: print(f"  • {line}")
 
-    # --- PHASE 3: ACTION ITEM DETECTION ---
-    print(f"\n" + "█"*60)
-    print(f" PHASE 3: ACTION ITEM DETECTION (SVM) ")
-    print(f"█"*60)
-    
-    action_items = []
-    
-    for chunk in topic_segments:
+# --- PHASE 3: ACTION ITEM EXTRACTION ---
+    print(f"\n" + "█"*60 + "\n PHASE 3: ACTION ITEM EXTRACTION (SVM) \n" + "█"*60)
+    all_chunks_data = []
+
+    for i, chunk in enumerate(topic_segments):
+        print(f"\n[Scanning Segment {i+1}]")
+        detected_actions = []
+        
         for sent in chunk:
             feat = [get_features(sent)]
             prediction = clf.predict(feat)[0]
             
             if prediction == 1:
-                action_items.append(sent)
-                print(f" [!] ACTION ITEM: {sent}")
+                label = "[!] Action item"
+                detected_actions.append(sent)
             else:
-                print(f" [ ] info: {sent[:60]}...")
+                label = "[ ] Info"
+            
+            print(f"  {label}: {sent}")
+        
+        all_chunks_data.append({"chunk_text": " ".join(chunk), "actions": detected_actions})
 
-    # --- FINAL REPORT ---
-    print(f"\n" + "="*60)
-    print(" FINAL ACTION ITEM SUMMARY ")
-    print("-" * 60)
-    if action_items:
-        for i, item in enumerate(action_items):
-            print(f"{i+1}. {item}")
-    else:
-        print("No action items detected.")
-    print("="*60)
+    # --- PHASE 4: ABSTRACTIVE SUMMARIZATION ---
+    print(f"\n" + "█"*60 + "\n PHASE 4: ABSTRACTIVE SUMMARIZATION (BART) \n" + "█"*60)
+    for i, data in enumerate(all_chunks_data):
+        print(f"\n[Generating Summary for Segment {i+1}...]")
+        summary = summarizer.generate_summary(data["chunk_text"], data["actions"])
+        data["summary"] = summary # Save for final report
+        print(f"RESULTING SUMMARY: {summary}")
+
+    # --- FINAL COMBINED OUTPUT ---
+    print(f"\n" + "="*60 + "\n FINAL GENERATED MINUTES OF THE MEETING \n" + "="*60)
+    for i, entry in enumerate(all_chunks_data):
+        print(f"\nTOPIC SECTION {i+1}")
+        print(f"Key Points: {entry['summary']}")
+        if entry['actions']:
+            print("Action Items:")
+            for act in entry['actions']: print(f"  • {act}")
 
 if __name__ == "__main__":
     main()
