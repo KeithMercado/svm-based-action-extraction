@@ -2,12 +2,18 @@ import customtkinter as ctk
 import os
 from PIL import Image
 import random
+from src.components.video_file_manager import VideoFileManager
+from src.components.pdf_file_manager import PDFFileManager
 
 class CompactActionApp(ctk.CTk):
     def __init__(self, start_cmd, stop_cmd, export_cmd):
         super().__init__()
         self.is_recording = False
         self.current_volume = 0
+        
+        # File Manager Windows
+        self.video_manager = None
+        self.pdf_manager = None
         
         # Paths
         self.base_dir = os.path.dirname(os.path.dirname(__file__))
@@ -37,47 +43,59 @@ class CompactActionApp(ctk.CTk):
         self.anim_canvas.pack(pady=(5, 0))
         self.bars = [self.anim_canvas.create_rectangle(50+(i*10), 15, 55+(i*10), 15, fill="#1d7c00", outline="") for i in range(10)]
 
-        # Buttons Container
+        # --- POP-UP MENU SECTION (Initially Hidden) ---
+        self.pop_menu = ctk.CTkFrame(self.controls, fg_color="#333333", corner_radius=12)
+        
+        # Load Pop-up Icons
+        self.clapper_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "clapperboard.png")), size=(35, 35))
+        self.pdf_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "pdf-file.png")), size=(35, 35))
+
+        self.btn_clapper = ctk.CTkButton(
+            self.pop_menu, text="", image=self.clapper_icon, width=40, height=40,
+            fg_color="transparent", hover_color="#444444", border_width=0,
+            command=self.open_video_manager
+        )
+        self.btn_clapper.pack(side="left", padx=10, pady=5)
+
+        self.btn_pdf = ctk.CTkButton(
+            self.pop_menu, text="", image=self.pdf_icon, width=40, height=40,
+            fg_color="transparent", hover_color="#444444", border_width=0,
+            command=self.open_pdf_manager
+        )
+        self.btn_pdf.pack(side="left", padx=10, pady=5)
+        # -----------------------------------------------
+
+        # 4. Main Buttons Container
         self.btn_container = ctk.CTkFrame(self.controls, fg_color="transparent")
         self.btn_container.pack(expand=True)
 
         # Load Icons
         self.button_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "button.png")), size=(50, 50))
-        self.stop_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "stop.png")), size=(50, 50))
-        self.printer_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "printer.png")), size=(45, 45))
+        self.stop_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "stop.png")), size=(50, 50)) # Added this
+        self.folder_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "folder.png")), size=(45, 45))
 
-        # Record Button - Transparent Style
+        # Record Button
         self.btn_record = ctk.CTkButton(
-            self.btn_container, 
-            text="", 
-            image=self.button_icon, 
-            width=30, 
-            height=30,
-            fg_color="transparent",      # No background color
-            hover_color="#2b2b2b",       # Subtle highlight when hovering
-            border_width=0,              # Remove the border
-            command=start_cmd
+            self.btn_container, text="", image=self.button_icon, width=30, height=30,
+            fg_color="transparent", hover_color="#2b2b2b", border_width=0, command=start_cmd
         )
         self.btn_record.pack(side="left", padx=20, pady=15)
 
-        # Export Button - Transparent Style
-        # TODO: Update the icon to a folder or export symbol, and consider adding a functional button for export options in the future.
-        # change to folder icon
-        # 2 folder inside, pdf and audio file for reference
-        # separate with date and time for uniqueness and based on file category.
-        self.btn_export = ctk.CTkButton(
-            self.btn_container, 
-            text="", 
-            image=self.printer_icon, 
-            width=30, 
-            height=30,
-            fg_color="transparent",      # No background color
-            hover_color="#2b2b2b",       # Subtle highlight when hovering
-            border_width=0,              # Remove the border
-            state="disabled", 
-            command=export_cmd
+        # Main Folder Button (Trigger for Pop-up)
+        self.btn_folder_main = ctk.CTkButton(
+            self.btn_container, text="", image=self.folder_icon, width=30, height=30,
+            fg_color="transparent", hover_color="#2b2b2b", border_width=0,
+            command=self.toggle_pop_menu 
         )
-        self.btn_export.pack(side="left", padx=20, pady=15)
+        self.btn_folder_main.pack(side="left", padx=20, pady=15)
+
+    def toggle_pop_menu(self):
+        """Toggles the visibility of the Clapper and PDF icons above the folder."""
+        if self.pop_menu.winfo_manager():
+            self.pop_menu.pack_forget()
+        else:
+            # Packs the menu specifically above the button container
+            self.pop_menu.pack(before=self.btn_container, pady=(0, 5))
 
     def animate_bars(self):
         if self.is_recording:
@@ -88,3 +106,21 @@ class CompactActionApp(ctk.CTk):
         else:
             for i, bar in enumerate(self.bars):
                 self.anim_canvas.coords(bar, 50+(i*10), 15, 55+(i*10), 15)
+    
+    def open_video_manager(self):
+        """Open the video file manager window"""
+        if self.video_manager is None or not self.video_manager.winfo_exists():
+            self.video_manager = VideoFileManager(self)
+            self.video_manager.focus()
+        else:
+            self.video_manager.focus()
+            self.video_manager.lift()
+    
+    def open_pdf_manager(self):
+        """Open the PDF file manager window"""
+        if self.pdf_manager is None or not self.pdf_manager.winfo_exists():
+            self.pdf_manager = PDFFileManager(self)
+            self.pdf_manager.focus()
+        else:
+            self.pdf_manager.focus()
+            self.pdf_manager.lift()
