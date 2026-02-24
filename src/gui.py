@@ -2,12 +2,18 @@ import customtkinter as ctk
 import os
 from PIL import Image
 import random
+from src.components.video_file_manager import VideoFileManager
+from src.components.pdf_file_manager import PDFFileManager
 
 class CompactActionApp(ctk.CTk):
     def __init__(self, start_cmd, stop_cmd, export_cmd):
         super().__init__()
         self.is_recording = False
         self.current_volume = 0
+        
+        # File Manager Windows
+        self.video_manager = None
+        self.pdf_manager = None
         
         # Paths
         self.base_dir = os.path.dirname(os.path.dirname(__file__))
@@ -46,13 +52,15 @@ class CompactActionApp(ctk.CTk):
 
         self.btn_clapper = ctk.CTkButton(
             self.pop_menu, text="", image=self.clapper_icon, width=40, height=40,
-            fg_color="transparent", hover_color="#444444", border_width=0
+            fg_color="transparent", hover_color="#444444", border_width=0,
+            command=self.open_video_manager
         )
         self.btn_clapper.pack(side="left", padx=10, pady=5)
 
         self.btn_pdf = ctk.CTkButton(
             self.pop_menu, text="", image=self.pdf_icon, width=40, height=40,
-            fg_color="transparent", hover_color="#444444", border_width=0
+            fg_color="transparent", hover_color="#444444", border_width=0,
+            command=self.open_pdf_manager
         )
         self.btn_pdf.pack(side="left", padx=10, pady=5)
         # -----------------------------------------------
@@ -98,3 +106,21 @@ class CompactActionApp(ctk.CTk):
         else:
             for i, bar in enumerate(self.bars):
                 self.anim_canvas.coords(bar, 50+(i*10), 15, 55+(i*10), 15)
+    
+    def open_video_manager(self):
+        """Open the video file manager window"""
+        if self.video_manager is None or not self.video_manager.winfo_exists():
+            self.video_manager = VideoFileManager(self)
+            self.video_manager.focus()
+        else:
+            self.video_manager.focus()
+            self.video_manager.lift()
+    
+    def open_pdf_manager(self):
+        """Open the PDF file manager window"""
+        if self.pdf_manager is None or not self.pdf_manager.winfo_exists():
+            self.pdf_manager = PDFFileManager(self)
+            self.pdf_manager.focus()
+        else:
+            self.pdf_manager.focus()
+            self.pdf_manager.lift()
