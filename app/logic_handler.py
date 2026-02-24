@@ -1,4 +1,6 @@
-from .export_service import ExportService
+import threading
+import queue
+from app.export_service import ExportService
 
 class AppLogic:
     def __init__(self, view, audio):
@@ -16,7 +18,24 @@ class AppLogic:
             self.view.animate_bars()
             self.update_volume_loop()
         except Exception as e:
-            self.view.transcript_box.insert("end", f"\n[Error]: {e}\n")
+            self.view.transcript_box.insert("end", f"\n[Error]: {e}\n") #
+
+    def transcription_monitor(self):
+        """Updates the GUI whenever new text arrives in the audio handler."""
+        print("[Debug]: UI Monitor Started.")
+        while self.view.is_recording:
+            try:
+                # Check the audio handler's text queue
+                new_text = self.audio.text_queue.get(timeout=0.1) #
+                print(f"[Debug]: UI Received: {new_text}")
+                # Safely update the GUI from a background thread
+                self.view.after(0, self.update_ui_text, new_text) #
+            except queue.Empty:
+                continue
+
+    def update_ui_text(self, text):
+        self.view.transcript_box.insert("end", f"{text}\n") #
+        self.view.transcript_box.see("end") # Auto-scroll to bottom
 
     def handle_stop(self):
         self.audio.stop_stream()
@@ -48,5 +67,5 @@ class AppLogic:
 
     def update_volume_loop(self):
         if self.view.is_recording:
-            self.view.current_volume = self.audio.current_volume
-            self.view.after(50, self.update_volume_loop)
+            self.view.current_volume = self.audio.current_volume #
+            self.view.after(50, self.update_volume_loop) #
