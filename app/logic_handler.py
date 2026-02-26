@@ -12,13 +12,16 @@ class AppLogic:
         try:
             self.audio.start_stream()
             self.view.is_recording = True
-            # This line works now because we added stop_icon to gui.py
             self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop)
             self.view.transcript_box.insert("end", "\n[System]: Listening...\n")
             self.view.animate_bars()
+
+            # This starts the thread that watches for new text from the AI
+            threading.Thread(target=self.transcription_monitor, daemon=True).start()
+            
             self.update_volume_loop()
         except Exception as e:
-            self.view.transcript_box.insert("end", f"\n[Error]: {e}\n") #
+            self.view.transcript_box.insert("end", f"\n[Error]: {e}\n")
 
     def transcription_monitor(self):
         """Updates the GUI whenever new text arrives in the audio handler."""

@@ -7,92 +7,87 @@ import scipy.io.wavfile as wav
 import threading
 import queue
 import time
+import pickle  # For saving/loading the model
 from faster_whisper import WhisperModel
-from sklearn.svm import SVC
+from sklearn.linear_model import SGDClassifier  # Supports incremental learning
+from sklearn.feature_extraction.text import HashingVectorizer # Lightweight vectorizer
 from transformers import BartForConditionalGeneration, BartTokenizer
 
 # --- INITIALIZATION ---
 nlp = spacy.load("en_core_web_sm")
 audio_queue = queue.Queue()
 is_recording = True
-fs = 16000  # Standard for Whisper
+fs = 16000
+MODEL_PATH = "svm_model.pkl"
+
+# We use HashingVectorizer because it doesn't need to 'fit' on a specific vocabulary
+vectorizer = HashingVectorizer(n_features=2**10)
+
+# --- PHASE 3: INCREMENTAL SVM LOAD/INIT ---
+def load_or_init_model():
+    if os.path.exists(MODEL_PATH):
+        with open(MODEL_PATH, 'rb') as f:
+            print("[System] Loading existing self-trained model...")
+            return pickle.load(f)
+    else:
+        print("[System] Initializing new model...")
+        model = SGDClassifier(loss='hinge')
+        # Initial "seed" data to establish classes [0, 1]
+        X_initial = vectorizer.transform(["info", "please do this"])
+        y_initial = [0, 1]
+        model.partial_fit(X_initial, y_initial, classes=[0, 1])
+        return model
+
+clf = load_or_init_model()
 
 # --- PHASE 4: ABSTRACTIVE SUMMARIZATION CLASS ---
 class AbstractiveSummarizer:
     def __init__(self):
-        print("Loading Phase 4: BART Summarization Model (this may take a moment)...")
-        # 'facebook/bart-large-cnn' is the industry standard for abstractive summaries
-        # For a lighter version, use 'sshleifer/distilbart-cnn-12-6'
+        print("Loading Phase 4: BART Summarization Model...")
         self.model_name = "facebook/bart-large-cnn"
         self.tokenizer = BartTokenizer.from_pretrained(self.model_name)
         self.model = BartForConditionalGeneration.from_pretrained(self.model_name)
 
     def generate_summary(self, text, action_items):
-        # Step 1: Combine context and detected action items for 'Coherence' (Dual-stage)
-        context_with_actions = text
+        input_text = f"Meeting: {text}"
         if action_items:
-            action_context = " Key tasks identified: " + " ".join(action_items)
-            context_with_actions += action_context
+            # We use a clear label so BART knows these are the important parts.
+            input_text += " Tasks: " + " . ".join(action_items)
 
-        # Step 2: Tokenize and Generate
-        inputs = self.tokenizer([context_with_actions], max_length=1024, return_tensors="pt", truncation=True)
+        inputs = self.tokenizer([input_text], max_length=1024, return_tensors="pt", truncation=True)
         
+        # 2. Use 'forced_bos_token_id' (This addresses the warning you saw earlier)
         summary_ids = self.model.generate(
             inputs["input_ids"], 
             num_beams=4, 
-            min_length=10,  # Lowered to allow condensation
-            max_length=60,  # Tightened to force BART to summarize, not copy
-            length_penalty=2.0,
-            early_stopping=True
+            min_length=10, 
+            max_length=60, 
+            no_repeat_ngram_size=3,
+            encoder_no_repeat_ngram_size=3, # Prevents copying the 'instruction' if used
+            early_stopping=True,
+            forced_bos_token_id=0 #
         )
         
-        return self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-
-# --- PHASE 3: SVM TRAINING (Mock Data for Thesis) ---
-clf = SVC(kernel='linear')
-train_X = [[1,0,0,0], [0,0,0,0], [0,1,0,1], [0,0,0,0]] 
-train_y = [1, 0, 1, 0] # 1 = Action Item, 0 = Information
-clf.fit(train_X, train_y)
+        decoded_summary = self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        
+        # 3. POST-PROCESSING: If the model STILL copies the prompt, we strip it.
+        # This ensures your GUI and Terminal stay clean.
+        if "Summarize the" in decoded_summary:
+            decoded_summary = decoded_summary.split("list.")[-1].strip()
+            
+        return decoded_summary
 
 # --- PHASE 3: FEATURE ENGINEERING ---
 def get_features(sentence):
-    text = sentence.lower()
-    doc = nlp(text)
-    
-    # Feature 1: Presence of task keywords (Taglish + Academic English)
-    action_keywords = ['paki', 'sige', 'review', 'read', 'prepare', 'submit', 'expect', 'priority', 'must']
-    has_action_word = 1 if any(word in text for word in action_keywords) else 0
-    
-    # Feature 2: Time/Deadline markers
-    has_deadline = 1 if any(word in text for word in ['due', 'before', 'monday', 'thursday', '2 p.m', 'midnight']) else 0
-    
-    # Feature 3: Starts with Verb (Imperative)
-    starts_with_verb = 1 if (len(doc) > 0 and doc[0].pos_ == "VERB") else 0
-    
-    return [has_action_word, has_deadline, starts_with_verb, 0]
+    """Returns the vectorized representation of the text."""
+    return vectorizer.transform([sentence])
 
-# --- RE-TRAIN SVM WITH BETTER DATA ---
-# Let's give it a few more examples so it understands the academic context
-train_X = [
-    [1, 1, 1, 0], # "Please review the slides before Thursday" (Action)
-    [1, 0, 1, 0], # "Read the article" (Action)
-    [0, 0, 0, 0], # "Alright everyone" (Info)
-    [0, 1, 0, 0], # "The portal is live" (Info)
-    [1, 1, 0, 0], # "Your problem sets are due Monday" (Action)
-]
-train_y = [1, 1, 0, 0, 1] 
-clf.fit(train_X, train_y)
-
-# --- REAL-TIME THREAD (The "Live" Experience) ---
+# --- REAL-TIME THREAD ---
 def real_time_transcription():
-    """Uses Faster-Whisper to transcribe 3-second chunks while recording."""
-    # INT8 makes it 4x faster on a CPU
     model = WhisperModel("base", device="cpu", compute_type="int8")
-    
     while is_recording or not audio_queue.empty():
         try:
             audio_chunk = audio_queue.get(timeout=1)
-            # 'tl' forces Taglish recognition
             segments, _ = model.transcribe(audio_chunk, language="tl", beam_size=5)
             for segment in segments:
                 if segment.text.strip():
@@ -102,101 +97,111 @@ def real_time_transcription():
 
 # --- THE MAIN PIPELINE ---
 def main():
-    global is_recording
-    filename = "meeting_recording.wav"
-    # MP4 for testing
-    # video_path = r"C:\Users\John Keith Mercado\Downloads\20260221__Alright_e.mp3"
-    summarizer = AbstractiveSummarizer() # Initialize BART
+    global is_recording, clf
+    filename = "20260221__Alright_e.mp3"
+    summarizer = AbstractiveSummarizer()
     audio_data = []
-    # redirect to output folder for integrations of done output files
-    # separate with date and time for uniqueness
-    # can be as well a training dataset for the future SVM improvements
 
-    print("\n" + "="*60)
-    print(" SYSTEM READY: LOCAL TAGLISH TRANSCRIPTION ")
-    print("="*60)
+    print("\n" + "="*60 + "\n SYSTEM READY: SELF-TRAINING PIPELINE \n" + "="*60)
+    # Temporarily commented for testing
+    # def callback(indata, frames, time, status):
+    #     audio_data.append(indata.copy())
+    #     if len(audio_data) % 150 == 0: 
+    #         chunk = np.concatenate(audio_data[-150:])
+    #         audio_queue.put(chunk.flatten())
 
-    # Audio Callback to capture mic data
-    def callback(indata, frames, time, status):
-        audio_data.append(indata.copy())
-        # Every 3 seconds, send chunk to the Live Thread
-        if len(audio_data) % 150 == 0: 
-            chunk = np.concatenate(audio_data[-150:])
-            audio_queue.put(chunk.flatten())
+    # threading.Thread(target=real_time_transcription, daemon=True).start()
 
-    # Start the Live Thread
-    threading.Thread(target=real_time_transcription, daemon=True).start()
+    # with sd.InputStream(samplerate=fs, channels=1, callback=callback):
+    #     input("\n[RECORDING] Press [ENTER] to stop...\n")
 
-    # Start Recording
-    with sd.InputStream(samplerate=fs, channels=1, callback=callback):
-        input("\n[RECORDING STARTED] Speak into your mic. Press [ENTER] to stop...\n")
+    # is_recording = False
+    # full_audio = np.concatenate(audio_data)
+    # wav.write(filename, fs, full_audio)
 
-    is_recording = False
-    print("\nProcessing final results... please wait.")
+   # --- PHASE 1: TRANSCRIPTION ---
+    print(f"\n" + "█"*60 + "\n PHASE 1: TRANSCRIPTION (FILE MODE) \n" + "█"*60)
 
-    # Save Full Recording
-    full_audio = np.concatenate(audio_data)
-    wav.write(filename, fs, full_audio)
-
-    # --- PHASE 1: BATCH TRANSCRIPTION ---
-    print(f"\n" + "█"*60)
-    print(f" PHASE 1: FULL TRANSCRIPTION (FASTER-WHISPER) ")
-    print(f"█"*60)
-    
     model = WhisperModel("medium", device="cpu", compute_type="int8")
-    segments, _ = model.transcribe(filename, language="tl")
-    
-    # Reconstruct the full text result from segments
-    raw_text = " ".join([s.text for s in segments])
-    print("\n[FULL RAW TEXT]:")
-    print(raw_text)
+    segments, info = model.transcribe(filename, language="tl") #
 
-    # --- PHASE 2: TOPIC SEGMENTATION ---
+    # Convert segments to list immediately to ensure they are captured
+    segments = list(segments) 
+
+    if not segments:
+        print(f"[Warning]: No speech detected in {filename}. Check if the file has audio.")
+        return
+
+    raw_text = " ".join([s.text for s in segments]) #
+    print(f"\n[PHASE 1 RESULT]:\n{raw_text}")
+    
+    # --- PHASE 2: SEGMENTATION ---
     print(f"\n" + "█"*60 + "\n PHASE 2: TOPIC SEGMENTATION \n" + "█"*60)
+    # Splitting logic to group sentences into "chunks"
     sentences = [s.strip() for s in raw_text.replace('so ', '. ').split('.') if len(s) > 5]
     topic_segments = [sentences[i:i + 5] for i in range(0, len(sentences), 5)]
+
+    # PRINT Phase 2 results
     for i, segment in enumerate(topic_segments):
-        print(f"\n[TOPIC CHUNK {i+1}]")
-        for line in segment: print(f"  • {line}")
+        print(f"\n[SEGMENT {i+1}]:")
+        print(" ".join(segment))
 
-# --- PHASE 3: ACTION ITEM EXTRACTION ---
-    print(f"\n" + "█"*60 + "\n PHASE 3: ACTION ITEM EXTRACTION (SVM) \n" + "█"*60)
+    # --- PHASE 3 & SELF-TRAINING DATA COLLECTION ---
+    print(f"\n" + "█"*60 + "\n PHASE 3: ACTION ITEM EXTRACTION & SELF-TRAIN \n" + "█"*60)
     all_chunks_data = []
+    correction_data = []
 
-    for i, chunk in enumerate(topic_segments):
-        print(f"\n[Scanning Segment {i+1}]")
+    for chunk in topic_segments:
         detected_actions = []
-        
         for sent in chunk:
-            feat = [get_features(sent)]
+            feat = get_features(sent)
             prediction = clf.predict(feat)[0]
             
-            if prediction == 1:
-                label = "[!] Action item"
-                detected_actions.append(sent)
-            else:
-                label = "[ ] Info"
+            # Print for user review later
+            status = "[!] Action" if prediction == 1 else "[ ] Info"
+            print(f"  {status}: {sent}")
             
-            print(f"  {label}: {sent}")
+            # Save for the "Review Session"
+            correction_data.append((sent, prediction))
+            
+            if prediction == 1:
+                detected_actions.append(sent)
         
         all_chunks_data.append({"chunk_text": " ".join(chunk), "actions": detected_actions})
 
-    # --- PHASE 4: ABSTRACTIVE SUMMARIZATION ---
-    print(f"\n" + "█"*60 + "\n PHASE 4: ABSTRACTIVE SUMMARIZATION (BART) \n" + "█"*60)
+    # --- PHASE 4: SUMMARY ---
+    print(f"\n" + "█"*60 + "\n PHASE 4: SUMMARIZATION (BART) \n" + "█"*60)
     for i, data in enumerate(all_chunks_data):
-        print(f"\n[Generating Summary for Segment {i+1}...]")
         summary = summarizer.generate_summary(data["chunk_text"], data["actions"])
-        data["summary"] = summary # Save for final report
-        print(f"RESULTING SUMMARY: {summary}")
+        data["summary"] = summary 
+        
+        # PRINT Phase 4 results
+        print(f"\n--- Summary for Segment {i+1} ---")
+        print(f"INPUT: {data['chunk_text'][:100]}...") # Show a snippet of input
+        print(f"OUTPUT: {summary}")
 
-    # --- FINAL COMBINED OUTPUT ---
-    print(f"\n" + "="*60 + "\n FINAL GENERATED MINUTES OF THE MEETING \n" + "="*60)
-    for i, entry in enumerate(all_chunks_data):
-        print(f"\nTOPIC SECTION {i+1}")
-        print(f"Key Points: {entry['summary']}")
-        if entry['actions']:
-            print("Action Items:")
-            for act in entry['actions']: print(f"  • {act}")
+    # --- THE SELF-TRAINING FEEDBACK LOOP ---
+    print("\n" + "="*60)
+    ask_review = input("Do you want to review this session to improve the AI? (y/n): ").lower()
+    
+    if ask_review == 'y':
+        print(f"\n" + "█"*60 + "\n SELF-TRAINING REVIEW MODE \n" + "█"*60)
+        updated = False
+        for sent, pred in correction_data:
+            user_input = input(f"AI marked as {pred}: '{sent}' -> Correct? (y/0/1): ").lower()
+            
+            if user_input != 'y':
+                correct_label = int(user_input)
+                clf.partial_fit(get_features(sent), [correct_label])
+                updated = True
+                print(f"  [Learned] '{sent}' is now recognized as {correct_label}")
+
+        if updated:
+            with open(MODEL_PATH, 'wb') as f:
+                pickle.dump(clf, f)
+            print("[System] Model updated and saved.")
+    else:
+        print("[System] Review skipped. Model remains unchanged.")
 
 if __name__ == "__main__":
     main()
