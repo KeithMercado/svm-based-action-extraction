@@ -98,26 +98,43 @@ def real_time_transcription():
 # --- THE MAIN PIPELINE ---
 def main():
     global is_recording, clf
-    filename = "20260221__Alright_e.mp3"
+    
+    # --- MODE SELECTION ---
+    print("\n" + "="*60 + "\n SYSTEM READY: SELECT MODE \n" + "="*60)
+    mode = ""
+    while mode not in ["1", "2"]:
+        mode = input("Select Option:\n (1) Live Meeting (Use Microphone)\n (2) Process File (Use .mp3)\n >> Enter 1 or 2: ").strip()
+
     summarizer = AbstractiveSummarizer()
     audio_data = []
+    
+    if mode == "1":
+        # --- LIVE RECORDING MODE ---
+        is_recording = True
+        filename = "live_meeting_output.wav"
+        
+        def callback(indata, frames, time, status):
+            audio_data.append(indata.copy())
+            if len(audio_data) % 150 == 0: 
+                chunk = np.concatenate(audio_data[-150:])
+                audio_queue.put(chunk.flatten())
 
-    print("\n" + "="*60 + "\n SYSTEM READY: SELF-TRAINING PIPELINE \n" + "="*60)
-    # Temporarily commented for testing
-    # def callback(indata, frames, time, status):
-    #     audio_data.append(indata.copy())
-    #     if len(audio_data) % 150 == 0: 
-    #         chunk = np.concatenate(audio_data[-150:])
-    #         audio_queue.put(chunk.flatten())
+        threading.Thread(target=real_time_transcription, daemon=True).start()
 
-    # threading.Thread(target=real_time_transcription, daemon=True).start()
+        print("\n" + "█"*60 + "\n PHASE 1: LIVE RECORDING (MIC ONLY) \n" + "█"*60)
+        with sd.InputStream(samplerate=fs, channels=1, callback=callback):
+            input("\n[RECORDING] Speak into your mic. Press [ENTER] to stop...\n")
 
-    # with sd.InputStream(samplerate=fs, channels=1, callback=callback):
-    #     input("\n[RECORDING] Press [ENTER] to stop...\n")
-
-    # is_recording = False
-    # full_audio = np.concatenate(audio_data)
-    # wav.write(filename, fs, full_audio)
+        is_recording = False
+        full_audio = np.concatenate(audio_data)
+        wav.write(filename, fs, full_audio)
+    else:
+        # --- FILE PROCESSING MODE ---
+        filename = "20260221__Alright_e.mp3"
+        if not os.path.exists(filename):
+            print(f"[Error]: {filename} not found.")
+            return
+        print(f"\n" + "█"*60 + "\n PHASE 1: TRANSCRIPTION (FILE MODE) \n" + "█"*60)
 
    # --- PHASE 1: TRANSCRIPTION ---
     print(f"\n" + "█"*60 + "\n PHASE 1: TRANSCRIPTION (FILE MODE) \n" + "█"*60)
