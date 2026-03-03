@@ -9,6 +9,12 @@ from faster_whisper import WhisperModel
 import scipy.io.wavfile as wav
 from datetime import datetime
 
+# if system audio is needed:
+
+# sounddevice alone cannot record system audio, but it can capture microphone input.
+# add soundcard alongside sounddevice
+# switch to pyaudiowpatch for better system audio capture
+
 class AudioHandler:
     def __init__(self):
         self.current_volume = 0
