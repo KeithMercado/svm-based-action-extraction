@@ -80,7 +80,7 @@ class VideoFileManager(ctk.CTkToplevel):
             widget.destroy()
         
         # Get video files
-        video_extensions = ('.wav', '.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm')
+        video_extensions = ('.wav', '.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.mp3')
         video_files = []
         
         if os.path.exists(self.output_dir):

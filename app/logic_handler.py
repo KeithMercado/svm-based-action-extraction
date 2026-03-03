@@ -3,6 +3,9 @@ import queue
 import time
 from app.export_service import ExportService
 
+# we can add pickle file loading here centralized for the whole app, 
+# so if we want to load a saved SVM model or something later we can do it here and pass it to the relevant components (pickle.load(MODEL_PATH) for example)
+
 class AppLogic:
     def __init__(self, view, audio):
         self.view = view

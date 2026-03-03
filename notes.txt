@@ -1,0 +1,34 @@
+TODO: 
+1. generate a short informative classroom tasks and convert as mp3 to use as dataset.
+2. Fix the system audio recording (currently only mic audio is captured)
+3. feed 5-10 datasets of videos or mp3 file to train the svm model and check the accuracy of the model.
+4. create a separate file similar to main.py but separate the models for each files and phases.
+
+-- 2/26/26 --
+
+
+
+-- 3/3/26 --
+Observation:
+BOTH ARE GOOD
+- System recordings are more than average
+- Paraphrase is more than average, it is good for task assigning (3rd person pov)
+
+TO BE FIX:
+- SYSTEM audio
+- REAL TIME TRANSCRIPT
+
+if the requirements is only a system audio > it is much easier to do a real time transcript. 
+
+
+TODO:
+ - add tfidfvectorizer from scikit learn. (learns all data automatically(Taglish if needed)) *not prio
+ - check all the daemon thread to ensure that if the user close the windows, the recording will stop immediately 
+ - model versioning: name the pkl model with the version or date. (para if ever tanungin tayo kung ano or gaano nagimprove yung model natin)
+    - we can say na "Between February and March, our model's accuracy improved by 15% as we added more training data"
+
+- file upload feature (explore file manager)
+- remove folder button and change to pdf convert button
+   > IF VIDEO IS NOT FOUND IN THE APP, EXPLORE THE SYSTEM FILE EXPLORER.
+   > CHOICE TO CONVERT TO PDF
+
