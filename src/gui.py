@@ -1,5 +1,6 @@
 import customtkinter as ctk
 import os
+import time
 from PIL import Image
 import random
 from src.components.video_file_manager import VideoFileManager
@@ -8,10 +9,10 @@ from src.components.pdf_file_manager import PDFFileManager
 class CompactActionApp(ctk.CTk):
     def __init__(self, start_cmd, stop_cmd, export_cmd):
         super().__init__()
+        
+        # State & Functionality
         self.is_recording = False
         self.current_volume = 0
-        
-        # File Manager Windows
         self.video_manager = None
         self.pdf_manager = None
         
@@ -20,107 +21,177 @@ class CompactActionApp(ctk.CTk):
         self.assets_dir = os.path.join(self.base_dir, "assets")
 
         # Window Config
-        self.title("MoM SVM Based Action Item Extractor") # change to something more catchy and less technical for the final version, maybe "MoM Genie" or "Taglish Transcriber"
-        self.geometry("300x420")
+        self.title("EchoNotes")
+        self.geometry("380x600")
+        self.configure(fg_color="#1d2027")
         self.attributes("-topmost", True)
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)
 
-        self._create_widgets(start_cmd, stop_cmd, export_cmd)
+        self._create_widgets(start_cmd, stop_cmd)
 
-    def _create_widgets(self, start_cmd, stop_cmd, export_cmd):
-        # Textbox
-        self.transcript_box = ctk.CTkTextbox(self, font=("Inter", 13), wrap="word", border_width=1)
-        self.transcript_box.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        self.transcript_box.insert("0.0", "Ready to record...\n" + "-"*30 + "\n")
+    def _create_widgets(self, start_cmd, stop_cmd):
+        # --- 1. HEADER (Status & Timer) ---
+        self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.header_frame.pack(fill="x", padx=20, pady=(15, 5))
 
-        # Controls Frame
-        self.controls = ctk.CTkFrame(self, height=150, corner_radius=10)
-        self.controls.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
+        self.status_indicator = ctk.CTkLabel(
+            self.header_frame, 
+            text="● READY TO RECORD", 
+            font=("Inter", 11, "bold"), 
+            text_color="#4a4d50"
+        )
+        self.status_indicator.pack(side="left")
 
-        # Animation Canvas
-        self.anim_canvas = ctk.CTkCanvas(self.controls, height=30, width=200, bg="#2b2b2b", highlightthickness=0)
-        self.anim_canvas.pack(pady=(5, 0))
-        self.bars = [self.anim_canvas.create_rectangle(50+(i*10), 15, 55+(i*10), 15, fill="#1d7c00", outline="") for i in range(10)]
-
-        # --- POP-UP MENU SECTION (Initially Hidden) ---
-        self.pop_menu = ctk.CTkFrame(self.controls, fg_color="#333333", corner_radius=12)
+        self.timer_label = ctk.CTkLabel(
+            self.header_frame, 
+            text="00:00", 
+            font=("JetBrains Mono", 14), 
+            text_color="#00f2ff"
+        )
+        self.timer_label.pack(side="right")
         
-        # Load Pop-up Icons
-        self.clapper_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "clapperboard.png")), size=(35, 35))
-        self.pdf_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "pdf-file.png")), size=(35, 35))
+        # LINE 1: Below Header
+        ctk.CTkFrame(self, height=2, fg_color="#22242d").pack(fill="x")
 
+        # --- 2. TRANSCRIPTION AREA ---
+        self.transcript_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.transcript_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        self.placeholder_text = ctk.CTkLabel(
+            self.transcript_frame, 
+            text="Press record to begin transcription...", 
+            font=("Inter", 13), 
+            text_color="#3f4245", 
+            wraplength=250
+        )
+        self.placeholder_text.place(relx=0.5, rely=0.5, anchor="center")
+
+        self.transcript_box = ctk.CTkTextbox(
+            self.transcript_frame, 
+            fg_color="transparent", 
+            font=("Inter", 13), 
+            border_width=0, 
+            text_color="#e1e1e1", 
+            wrap="word", 
+            spacing3=5,
+            state="disabled" # Starts uneditable
+        )
+        # Cyan tag for timestamps
+        self.transcript_box.tag_config("timestamp", foreground="#00f2ff")
+
+        # --- 3. VISUALIZER & SEPARATORS ---
+        # LINE 2: Above Visualizer
+        ctk.CTkFrame(self, height=2, fg_color="#22242d").pack(fill="x", pady=(10, 0))
+
+        self.visualizer_frame = ctk.CTkFrame(self, fg_color="transparent", height=50)
+        self.visualizer_frame.pack(fill="x", pady=5)
+        
+        self.anim_canvas = ctk.CTkCanvas(
+            self.visualizer_frame, 
+            height=30, 
+            width=300, 
+            bg="#1d2027", 
+            highlightthickness=0
+        )
+        self.anim_canvas.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # Setup Visualizer Bars
+        bar_width, gap = 4, 4
+        start_x = (300 - (30 * (bar_width + gap))) / 2
+        self.bars = [
+            self.anim_canvas.create_rectangle(
+                start_x + i*8, 15, start_x + i*8 + 4, 15, 
+                fill="#00f2ff", outline=""
+            ) for i in range(30)
+        ]
+
+        # LINE 3: Below Visualizer / Above Controls
+        ctk.CTkFrame(self, height=2, fg_color="#22242d").pack(fill="x", pady=(0, 10))
+
+        # --- 4. CONTROLS ---
+        self.controls = ctk.CTkFrame(self, fg_color="transparent")
+        self.controls.pack(fill="x", pady=(10, 30))
+
+        # Icons (Renamed to match logic handler's expectations or vice versa)
+        self.button_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "button.png")), size=(25, 25))
+        self.stop_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "stop.png")), size=(25, 25))
+        self.folder_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "folder.png")), size=(22, 22))
+
+        self.btn_record = ctk.CTkButton(self.controls, text="", image=self.button_icon, width=60, height=60, 
+                                        corner_radius=30, fg_color="#1e2d2e", border_color="#00f2ff", 
+                                        border_width=2, hover_color="#2a3f40", command=start_cmd)
+        self.btn_record.pack(side="left", expand=True, padx=(40, 10))
+
+        self.btn_folder_main = ctk.CTkButton(self.controls, text="", image=self.folder_icon, width=50, height=50, 
+                                            corner_radius=25, fg_color="#23272f", hover_color="#323538", 
+                                            command=self.toggle_pop_menu)
+        self.btn_folder_main.pack(side="left", expand=True, padx=(10, 40))
+
+        # --- 5. POP-UP MENU ---
+        self.pop_menu = ctk.CTkFrame(self, fg_color="#252729", corner_radius=15, border_width=1, border_color="#323538")
+        
+        # Icons
+        self.clapper_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "clapperboard.png")), size=(30, 30))
+        self.pdf_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "pdf-file.png")), size=(30, 30))
+
+        # Fix: Assigning to self.btn_clapper
         self.btn_clapper = ctk.CTkButton(
-            self.pop_menu, text="", image=self.clapper_icon, width=40, height=40,
-            fg_color="transparent", hover_color="#444444", border_width=0,
+            self.pop_menu, text="", image=self.clapper_icon, 
+            width=45, height=45, fg_color="transparent", 
             command=self.open_video_manager
         )
         self.btn_clapper.pack(side="left", padx=10, pady=5)
 
+        # Fix: Assigning to self.btn_pdf
         self.btn_pdf = ctk.CTkButton(
-            self.pop_menu, text="", image=self.pdf_icon, width=40, height=40,
-            fg_color="transparent", hover_color="#444444", border_width=0,
+            self.pop_menu, text="", image=self.pdf_icon, 
+            width=45, height=45, fg_color="transparent", 
             command=self.open_pdf_manager
         )
         self.btn_pdf.pack(side="left", padx=10, pady=5)
-        # -----------------------------------------------
-
-        # 4. Main Buttons Container
-        self.btn_container = ctk.CTkFrame(self.controls, fg_color="transparent")
-        self.btn_container.pack(expand=True)
-
-        # Load Icons
-        self.button_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "button.png")), size=(50, 50))
-        self.stop_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "stop.png")), size=(50, 50)) # Added this
-        self.folder_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "folder.png")), size=(45, 45))
-
-        # Record Button
-        self.btn_record = ctk.CTkButton(
-            self.btn_container, text="", image=self.button_icon, width=30, height=30,
-            fg_color="transparent", hover_color="#2b2b2b", border_width=0, command=start_cmd
-        )
-        self.btn_record.pack(side="left", padx=20, pady=15)
-
-        # Main Folder Button (Trigger for Pop-up)
-        self.btn_folder_main = ctk.CTkButton(
-            self.btn_container, text="", image=self.folder_icon, width=30, height=30,
-            fg_color="transparent", hover_color="#2b2b2b", border_width=0,
-            command=self.toggle_pop_menu 
-        )
-        self.btn_folder_main.pack(side="left", padx=20, pady=15)
 
     def toggle_pop_menu(self):
-        """Toggles the visibility of the Clapper and PDF icons above the folder."""
-        if self.pop_menu.winfo_manager():
-            self.pop_menu.pack_forget()
-        else:
-            # Packs the menu specifically above the button container
-            self.pop_menu.pack(before=self.btn_container, pady=(0, 5))
+        if self.pop_menu.winfo_manager(): self.pop_menu.place_forget()
+        else: self.pop_menu.place(relx=0.5, rely=0.75, anchor="center")
 
     def animate_bars(self):
+        """Updated neon cyan visualizer animation with safety checks."""
         if self.is_recording:
+            # Recalculate start_x to ensure bars stay centered
+            bar_width = 4
+            gap = 4
+            start_x = (300 - (30 * (bar_width + gap))) / 2
+            
             for i, bar in enumerate(self.bars):
-                h = min(14, self.current_volume * random.uniform(0.8, 1.2)) if self.current_volume > 0.2 else 0
-                self.anim_canvas.coords(bar, 50+(i*10), 15-h, 55+(i*10), 15+h)
+                # Calculate height based on current volume
+                # Ensure current_volume exists and is a number
+                vol = getattr(self, 'current_volume', 0)
+                h = min(14, vol * random.uniform(0.8, 1.2)) if vol > 0.1 else 2
+                
+                # Calculate static x positions based on index i
+                x0 = start_x + i * (bar_width + gap)
+                x1 = x0 + bar_width
+                
+                # Update coordinates: (x0, y0, x1, y1)
+                # 15 is the vertical center of the 30px canvas
+                self.anim_canvas.coords(bar, x0, 15 - h, x1, 15 + h)
+                
             self.after(50, self.animate_bars)
         else:
+            # Reset bars to flat line when not recording
+            bar_width = 4
+            gap = 4
+            start_x = (300 - (30 * (bar_width + gap))) / 2
             for i, bar in enumerate(self.bars):
-                self.anim_canvas.coords(bar, 50+(i*10), 15, 55+(i*10), 15)
-    
+                x0 = start_x + i * (bar_width + gap)
+                x1 = x0 + bar_width
+                self.anim_canvas.coords(bar, x0, 15, x1, 15)
+
     def open_video_manager(self):
-        """Open the video file manager window"""
         if self.video_manager is None or not self.video_manager.winfo_exists():
             self.video_manager = VideoFileManager(self)
-            self.video_manager.focus()
-        else:
-            self.video_manager.focus()
-            self.video_manager.lift()
-    
+        self.video_manager.focus()
+
     def open_pdf_manager(self):
-        """Open the PDF file manager window"""
         if self.pdf_manager is None or not self.pdf_manager.winfo_exists():
             self.pdf_manager = PDFFileManager(self)
-            self.pdf_manager.focus()
-        else:
-            self.pdf_manager.focus()
-            self.pdf_manager.lift()
+        self.pdf_manager.focus()
