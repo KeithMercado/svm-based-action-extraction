@@ -32,3 +32,21 @@ TODO:
    > IF VIDEO IS NOT FOUND IN THE APP, EXPLORE THE SYSTEM FILE EXPLORER.
    > CHOICE TO CONVERT TO PDF
 
+
+
+
+-- 3/4/26 --
+GOAL IS TO SEPARATE THE MAIN INTO A CLEAN FILE MANAGEMENT
+- BREAK DOWN other components into methods if needed.
+- ADD folder for specific components if needed.
+
+- looping process of mic and file
+- but the result are the same and as expected.
+
+SOLVED:
+- Windows is crashing when transfering the recorded file into a pdf or transcripted result. (SOLVED)
+- prevents memory leaks
+- prevents race condition crashes
+- potential overflowing is fixed
+- added threading for better laning and separation of process.
+- prevents the application to create or trying to copy a file into itself.
