@@ -1,6 +1,10 @@
 import customtkinter as ctk
 import os
 from datetime import datetime
+import subprocess
+import sys
+import threading # for handling subprocess without freezing the UI
+import shutil # for handling file copying during upload
 
 class VideoFileManager(ctk.CTkToplevel):
     def __init__(self, parent):
@@ -45,14 +49,31 @@ class VideoFileManager(ctk.CTkToplevel):
         self.search_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self.search_entry.bind("<KeyRelease>", self._on_search)
         
+        # button frames for refresh and upload
+        button_frame = ctk.CTkFrame(search_frame, fg_color="transparent")
+        button_frame.pack(side="left", padx=(0, 10))
+        
+        # change to logo buttons for refresh and upload
         refresh_btn = ctk.CTkButton(
-            search_frame,
-            text="🔄 Refresh",
-            width=100,
+            button_frame,
+            text="🔄",
+            width=40,
             height=35,
+            font=("Inter", 18),
             command=self._load_files
         )
-        refresh_btn.pack(side="left")
+        refresh_btn.pack(side="left", padx=5)
+        
+        # added folder upload button for video manager (logo)
+        upload_btn = ctk.CTkButton(
+            button_frame,
+            text="📂",
+            width=40,
+            height=35,
+            font=("Inter", 18),
+            command=self._upload_video
+        )
+        upload_btn.pack(side="left", padx=5)
         
         # File List Frame with Scrollbar
         list_frame = ctk.CTkFrame(self)
@@ -154,25 +175,28 @@ class VideoFileManager(ctk.CTkToplevel):
         btn_frame = ctk.CTkFrame(entry_frame, fg_color="transparent")
         btn_frame.pack(side="right", padx=10)
         
-        # Open Button
+        # changed the "Open" button to a logo button and sized it down to fit better with the new design
         open_btn = ctk.CTkButton(
             btn_frame,
-            text="▶ Open",
-            width=80,
+            text="▶",
+            width=40,
             height=30,
+            font=("Inter", 14),
             command=lambda: self._open_file(file_info['path'])
         )
         open_btn.pack(side="left", padx=5)
         
-        # Open Folder Button
-        folder_btn = ctk.CTkButton(
+        # changed to a logo button for PDF transfer and sized it down to fit better with the new design
+        # this now is a terminal based containing the main.py function
+        pdf_btn = ctk.CTkButton(
             btn_frame,
-            text="📁",
+            text="📄",
             width=40,
             height=30,
-            command=lambda: self._open_folder(file_info['path'])
+            font=("Inter", 14),
+            command=lambda: self._transfer_to_pdf(file_info['path'])
         )
-        folder_btn.pack(side="left", padx=5)
+        pdf_btn.pack(side="left", padx=5)
     
     def _open_file(self, file_path):
         """Open the video file with default application"""
@@ -181,13 +205,81 @@ class VideoFileManager(ctk.CTkToplevel):
         except Exception as e:
             print(f"Error opening file: {e}")
     
-    def _open_folder(self, file_path):
-        """Open the folder containing the file"""
+    # added upload function for video manager, 
+    # allowing users to upload their own videos to the output directory 
+    # and have them appear in the file manager list
+    def _upload_video(self):
+        """Allow user to upload a video file without creating a new root"""
         try:
-            folder_path = os.path.dirname(file_path)
-            os.startfile(folder_path)
+            from tkinter import filedialog
+            
+            # Using 'self' as parent instead of creating a new ctk.CTk()
+            # because filedialog can work with the existing window and won't create a new one
+            # this have a heavy performance boost compared to creating a new root every time the upload button is clicked, 
+            # which can cause memory leaks and multiple windows if not handled properly
+            file_path = filedialog.askopenfilename(
+                parent=self,
+                title="Select a video file to upload",
+                filetypes=[
+                    ("Video Files", "*.mp4 *.avi *.mov *.mkv *.wmv *.flv *.webm"),
+                    ("Audio Files", "*.mp3 *.wav"),
+                    ("All Files", "*.*")
+                ]
+            )
+            
+            if file_path:
+                file_name = os.path.basename(file_path)
+                destination = os.path.join(self.output_dir, file_name)
+                
+                # check if the selected file is already in the output directory to avoid unnecessary copying and potential overwriting
+                if os.path.abspath(file_path) == os.path.abspath(destination):
+                    return
+
+                shutil.copy2(file_path, destination)
+                print(f"[System] Video uploaded: {file_name}")
+                self._load_files()
+                
         except Exception as e:
-            print(f"Error opening folder: {e}")
+            print(f"Error uploading video: {e}")
+
+    def _transfer_to_pdf(self, file_path):
+        """Extract processes from video using a thread to prevent GUI freezing"""
+        
+        # Update status so user knows something is happening
+        self.status_label.configure(text=f"Processing {os.path.basename(file_path)}...", text_color="#3a7ebf")
+
+        def run_process():
+            print(f"\n{'='*60}")
+            print(f"[PDF TRANSFER] Processing: {os.path.basename(file_path)}")
+            print(f"{'='*60}\n")
+            
+            try:
+                # subprocess.run is blocking, but it's okay because it's inside a thread
+                subprocess.run(
+                    [sys.executable, "Main.py", file_path],
+                    cwd=self.base_dir,
+                    capture_output=False,
+                    check=True
+                )
+                
+                # used the self.after method to update the status label from the thread, 
+                # since we can't update GUI elements directly from a non-main thread
+                self.after(0, lambda: self.status_label.configure(
+                    text=f"Finished: {os.path.basename(file_path)}", 
+                    text_color="green"
+                ))
+                print(f"\n[System] Processing complete.\n")
+
+            except Exception as e:
+                print(f"[Error] Failed to process file: {e}\n")
+                self.after(0, lambda: self.status_label.configure(
+                    text="Error during processing", 
+                    text_color="red"
+                ))
+
+        # start the thread as 'daemon' so it closes if the app is closed
+        process_thread = threading.Thread(target=run_process, daemon=True)
+        process_thread.start()
     
     def _on_search(self, event=None):
         """Filter files based on search query"""
