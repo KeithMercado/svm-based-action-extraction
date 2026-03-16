@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 import spacy
 import torch
 import numpy as np
@@ -95,21 +96,64 @@ def real_time_transcription():
         except queue.Empty:
             continue
 
+def train_from_csv(file_paths, model):
+    """Reads CSV datasets and trains the SVM model with robust column detection."""
+    label_map = {"action_item": 1, "information_item": 0}
+    
+    for path in file_paths:
+        if os.path.exists(path):
+            print(f"[System] Training on {path}...")
+            df = pd.read_csv(path)
+            
+            # --- ROBUST COLUMN CLEANING ---
+            # Convert all column names to lowercase and remove spaces
+            df.columns = [c.lower().strip() for c in df.columns]
+            
+            # Check if required columns exist after cleaning
+            if 'text' not in df.columns or 'label' not in df.columns:
+                print(f"[Error] {path} is missing 'text' or 'label' columns.")
+                print(f"Actual columns found: {df.columns.tolist()}")
+                continue # Skip this file and move to the next
+            
+            # Clean data: Remove empty rows
+            df = df.dropna(subset=['text', 'label'])
+            texts = df['text'].astype(str).tolist() # Ensure everything is a string
+            labels = [label_map.get(l.strip().lower(), 0) for l in df['label'].tolist()]
+            
+            # Vectorize and Train
+            X = vectorizer.transform(texts)
+            model.partial_fit(X, labels, classes=[0, 1])
+            print(f"  - Successfully processed {len(texts)} rows.")
+        else:
+            print(f"[Error] File not found: {path}")
+            
+    # Save the updated model
+    with open(MODEL_PATH, 'wb') as f:
+        pickle.dump(model, f)
+    print(f"[System] Training complete. Model saved to {MODEL_PATH}.")
+    return model
+
 # --- THE MAIN PIPELINE ---
 def main():
     global is_recording, clf
     
     # --- MODE SELECTION ---
     print("\n" + "="*60 + "\n SYSTEM READY: SELECT MODE \n" + "="*60)
-    mode = ""
-    while mode not in ["1", "2"]:
-        mode = input("Select Option:\n (1) Live Meeting (Use Microphone)\n (2) Process File (Use .mp3)\n >> Enter 1 or 2: ").strip()
+    print(" (1) Live Meeting (Use Microphone)")
+    print(" (2) Process File (Use .mp4/.mp3)")
+    print(" (3) Train AI Model (Use .csv datasets)")
+    mode = input(" >> Enter 1, 2, or 3: ").strip()
 
+    if mode == "3":
+        datasets = ["action_items_dataset_20k_taglish.csv"]
+        clf = train_from_csv(datasets, clf)
+        return  # Exit early so we don't load BART or Whisper for training
+
+    # --- Only load these for Transcription Modes (1 & 2) ---
     summarizer = AbstractiveSummarizer()
     audio_data = []
     
     if mode == "1":
-        # --- LIVE RECORDING MODE ---
         is_recording = True
         filename = "live_meeting_output.wav"
         
@@ -121,20 +165,19 @@ def main():
 
         threading.Thread(target=real_time_transcription, daemon=True).start()
 
-        print("\n" + "█"*60 + "\n PHASE 1: LIVE RECORDING (MIC ONLY) \n" + "█"*60)
+        print("\n" + "█"*60 + "\n PHASE 1: LIVE RECORDING \n" + "█"*60)
         with sd.InputStream(samplerate=fs, channels=1, callback=callback):
             input("\n[RECORDING] Speak into your mic. Press [ENTER] to stop...\n")
 
         is_recording = False
         full_audio = np.concatenate(audio_data)
         wav.write(filename, fs, full_audio)
-    else:
-        # --- FILE PROCESSING MODE ---
-        filename = "20260221__Alright_e.mp3"
+        
+    elif mode == "2":
+        filename = "AI Voice Generator with Emotional Text to Speech - Google Chrome 2026-03-06 21-49-09.mp4"
         if not os.path.exists(filename):
             print(f"[Error]: {filename} not found.")
             return
-        print(f"\n" + "█"*60 + "\n PHASE 1: TRANSCRIPTION (FILE MODE) \n" + "█"*60)
 
    # --- PHASE 1: TRANSCRIPTION ---
     print(f"\n" + "█"*60 + "\n PHASE 1: TRANSCRIPTION (FILE MODE) \n" + "█"*60)
