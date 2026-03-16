@@ -50,3 +50,38 @@ SOLVED:
 - potential overflowing is fixed
 - added threading for better laning and separation of process.
 - prevents the application to create or trying to copy a file into itself.
+
+--------------------------------------------------------------------------------
+
+3/16/2026
+- SYSTEM AUDIO IS SO MAKUNAT
+- REVERTED
+
+Suggestions:
+- load the manual labels of action and information in csv (gathered in all transcripts)
+- since we already have a good library, folder management, and transcribing tool,
+   we do batch train every manual/automatically labels
+- tracking progress via learning curve as 3/4/2026 stated
+- we need to record this in precision and recall (ACCURACY CAN BE MISLEADING)
+- save the model even if it is interrupted (other way if possible)
+
+"HOLD OUT TESTING"
+we kleep a small folder of "Gold Standard" meeting recordings that the model never sees during training.
+we will run our updated model against this "Gold Standard" set. If the score goes up, our training is working. 
+If it goes down, we are "overfitting" (the model is just memorizing specific sentences instead of learning the language)
+
+
+basis:
+https://github.com/vaibhavsanjaylalka/Action-Item-Detection
+
+Goal:
+Precision: ~0.88
+Recall: ~0.90
+F1-score: ~0.89
+Accuracy: ~0.90
+
+run csv,
+train
+check the result
+
+we need to clean the main, apply the model, and check the progress.
