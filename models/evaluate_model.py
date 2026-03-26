@@ -15,7 +15,15 @@ DATA_FOLDER = os.path.join(PROJECT_ROOT, "data")
 
 DATASETS = {
     "Formal English (10k)": os.path.join(DATA_FOLDER, "action_items_dataset_10k.csv"),
-    "Mixed Taglish (20k)": os.path.join(DATA_FOLDER, "action_items_dataset_20k_taglish.csv")
+    "Mixed Taglish (20k)": os.path.join(DATA_FOLDER, "action_items_dataset_20k_taglish.csv"),
+    "Tagalog Set": os.path.join(DATA_FOLDER, "tagalog_action_items.csv"),
+    "Taglish Set": os.path.join(DATA_FOLDER, "taglish_action_items.csv"),
+    "Expanded English": os.path.join(DATA_FOLDER, "english_expanded_dataset.csv"),
+    "Comprehensive (12k)": os.path.join(DATA_FOLDER, "comprehensive_thesis_dataset_12k.csv"),
+    "Meeting Specific (15k)": os.path.join(DATA_FOLDER, "meeting_specific_dataset_15k.csv"),
+    "Expanded Contexts (20k)": os.path.join(DATA_FOLDER, "expanded_meeting_contexts_20k.csv"),
+    "Massive Diverse (50k)": os.path.join(DATA_FOLDER, "massive_diverse_dataset_50000.csv"),
+    "Ultimate Diversity (50k)": os.path.join(DATA_FOLDER, "ultimate_diversity_dataset_50k.csv")
 }
 
 # Must match your Main.py exactly!
