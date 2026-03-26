@@ -145,7 +145,7 @@ def main():
     mode = input(" >> Enter 1, 2, or 3: ").strip()
 
     if mode == "3":
-        datasets = ["action_items_dataset_20k_taglish.csv"]
+        datasets = ["ultimate_diversity_dataset_50k.csv"]
         clf = train_from_csv(datasets, clf)
         return  # Exit early so we don't load BART or Whisper for training
 
@@ -174,7 +174,7 @@ def main():
         wav.write(filename, fs, full_audio)
         
     elif mode == "2":
-        filename = "AI Voice Generator with Emotional Text to Speech - Google Chrome 2026-03-06 21-49-09.mp4"
+        filename = "20260221__Alright_e.mp3"
         if not os.path.exists(filename):
             print(f"[Error]: {filename} not found.")
             return
