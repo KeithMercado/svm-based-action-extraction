@@ -50,3 +50,37 @@ SOLVED:
 - potential overflowing is fixed
 - added threading for better laning and separation of process.
 - prevents the application to create or trying to copy a file into itself.
+
+
+----------------
+3/29/26
+DONE:
+   1. Cleaned datasets and a short data quality report
+   2. Same row counts reproducible every run.
+   3. Best model selected with evidence.
+   4. Map labels strictly: information_item/0 -> 0, action_item/1 -> 1.
+
+TODO:
+SYSTEM BASED:
+fix system while training dataset.
+   1. Fix audio capture requirement gap (system audio + mic)
+	- Decide capture mode: mic only, system only, or mixed.
+	- Implement proper system audio capture path (current audio_handler.py comments already identify this gap).
+	- Add device selection UI and fallback behavior when loopback/system device is unavailable.
+	- Validate with 5 known test clips and 3 live sessions.
+
+Deliverables:
+	Reliable capture for the required source (especially system audio).
+	- Test log proving captured audio matches expected source.
+
+
+   2. Stabilize end-to-end runtime and evidence output
+   - Standardize model load path across app and scripts so runtime always loads the intended latest model.
+	- Add runtime logging for: selected model, selected dataset version, transcription mode, and processing time.
+	- Add one-click export of session summary + extracted actions + metadata for thesis appendix.
+	- Run a stress test (multiple start/stop cycles, long recording, export loop) and document failures fixed.
+
+Deliverables:
+	- Stable demo pipeline from record/process -> action extraction -> export.
+	- Reproducible run logs for thesis defense questions.
+
