@@ -8,11 +8,22 @@ import scipy.io.wavfile as wav
 import threading
 import queue
 import time
+import traceback
+import tempfile
+import subprocess
+import glob
 import pickle  # For saving/loading the model
 from faster_whisper import WhisperModel
 from sklearn.linear_model import SGDClassifier  # Supports incremental learning
 from sklearn.feature_extraction.text import HashingVectorizer # Lightweight vectorizer
 from transformers import BartForConditionalGeneration, BartTokenizer
+
+try:
+    from integrations.groq.transcribe import transcribe_with_groq
+    groq_import_error = None
+except Exception as e:
+    transcribe_with_groq = None
+    groq_import_error = str(e)
 
 # --- INITIALIZATION ---
 nlp = spacy.load("en_core_web_sm")
@@ -83,6 +94,105 @@ def get_features(sentence):
     """Returns the vectorized representation of the text."""
     return vectorizer.transform([sentence])
 
+
+def can_use_ffmpeg():
+    try:
+        res = subprocess.run(
+            ["ffmpeg", "-version"],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
+def transcribe_with_groq_retries(file_path, language="tl", retries=3):
+    last_error = None
+    for attempt in range(1, retries + 1):
+        try:
+            return transcribe_with_groq(file_path, language=language)
+        except Exception as e:
+            last_error = e
+            if attempt < retries:
+                wait_s = 2 * attempt
+                print(f"[System] Groq attempt {attempt}/{retries} failed: {e}. Retrying in {wait_s}s...")
+                time.sleep(wait_s)
+
+    raise RuntimeError(f"Groq transcription failed after {retries} attempts: {last_error}")
+
+
+def transcribe_with_groq_chunked(file_path, language="tl", retries=3, segment_seconds=180):
+    """Compresses and chunks media for faster and more reliable Groq transcription."""
+    if not can_use_ffmpeg():
+        print("[System] ffmpeg not found. Using direct Groq upload.")
+        return transcribe_with_groq_retries(file_path, language=language, retries=retries)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        chunk_pattern = os.path.join(temp_dir, "chunk_%03d.mp3")
+        ffmpeg_cmd = [
+            "ffmpeg", "-y",
+            "-i", file_path,
+            "-vn",
+            "-ac", "1",
+            "-ar", "16000",
+            "-b:a", "32k",
+            "-f", "segment",
+            "-segment_time", str(segment_seconds),
+            "-reset_timestamps", "1",
+            chunk_pattern,
+        ]
+
+        print("[System] Preparing compressed chunks for Groq...")
+        prep = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, check=False)
+        if prep.returncode != 0:
+            print("[System] ffmpeg chunking failed. Falling back to direct Groq upload.")
+            return transcribe_with_groq_retries(file_path, language=language, retries=retries)
+
+        chunk_files = sorted(glob.glob(os.path.join(temp_dir, "chunk_*.mp3")))
+        if not chunk_files:
+            print("[System] No chunks generated. Falling back to direct Groq upload.")
+            return transcribe_with_groq_retries(file_path, language=language, retries=retries)
+
+        texts = []
+        total = len(chunk_files)
+        for idx, chunk_file in enumerate(chunk_files, start=1):
+            print(f"[System] Groq chunk {idx}/{total}: {os.path.basename(chunk_file)}")
+            part = transcribe_with_groq_retries(chunk_file, language=language, retries=retries)
+            if part.strip():
+                texts.append(part.strip())
+
+        return " ".join(texts)
+
+
+def transcribe_file(filename, engine="local", language="tl", retries=3):
+    """Transcribes an audio/video file using local Whisper or Groq API."""
+    if engine == "groq":
+        if transcribe_with_groq is None:
+            raise RuntimeError(
+                f"Groq integration is unavailable: {groq_import_error}"
+            )
+
+        ext = os.path.splitext(filename)[1].lower()
+        is_video = ext in {".mp4", ".mkv", ".mov", ".avi", ".webm"}
+        size_mb = os.path.getsize(filename) / (1024 * 1024)
+        if is_video or size_mb > 12:
+            print(f"[System] Using fast chunked Groq mode (size={size_mb:.1f} MB)...")
+            return transcribe_with_groq_chunked(filename, language=language, retries=retries)
+
+        return transcribe_with_groq_retries(filename, language=language, retries=retries)
+
+    model = WhisperModel("medium", device="cpu", compute_type="int8")
+    segments, _ = model.transcribe(filename, language=language)
+    segments = list(segments)
+
+    if not segments:
+        return ""
+
+    return " ".join([s.text for s in segments])
+
 # --- REAL-TIME THREAD ---
 def real_time_transcription():
     model = WhisperModel("base", device="cpu", compute_type="int8")
@@ -149,13 +259,22 @@ def main():
         clf = train_from_csv(datasets, clf)
         return  # Exit early so we don't load BART or Whisper for training
 
-    # --- Only load these for Transcription Modes (1 & 2) ---
-    summarizer = AbstractiveSummarizer()
+    print("\n Choose Transcription Engine")
+    print(" (1) Local Faster-Whisper (offline)")
+    print(" (2) Groq whisper-large-v3-turbo (API)")
+    engine_choice = input(" >> Enter 1 or 2: ").strip()
+    transcription_engine = "groq" if engine_choice == "2" else "local"
+
+    # --- Only load summarizer after transcription succeeds ---
+    summarizer = None
     audio_data = []
     
     if mode == "1":
         is_recording = True
         filename = "live_meeting_output.wav"
+
+        if transcription_engine == "groq":
+            print("[System] Groq mode in Live Meeting transcribes after you press ENTER to stop recording.")
         
         def callback(indata, frames, time, status):
             audio_data.append(indata.copy())
@@ -163,7 +282,8 @@ def main():
                 chunk = np.concatenate(audio_data[-150:])
                 audio_queue.put(chunk.flatten())
 
-        threading.Thread(target=real_time_transcription, daemon=True).start()
+        if transcription_engine == "local":
+            threading.Thread(target=real_time_transcription, daemon=True).start()
 
         print("\n" + "█"*60 + "\n PHASE 1: LIVE RECORDING \n" + "█"*60)
         with sd.InputStream(samplerate=fs, channels=1, callback=callback):
@@ -174,26 +294,42 @@ def main():
         wav.write(filename, fs, full_audio)
         
     elif mode == "2":
-        filename = "20260221__Alright_e.mp3"
+        filename = input(" >> Enter file path (.mp4/.mp3/.wav): ").strip().strip('"')
+        if not filename:
+            print("[Error]: No file path provided.")
+            return
         if not os.path.exists(filename):
             print(f"[Error]: {filename} not found.")
             return
 
    # --- PHASE 1: TRANSCRIPTION ---
-    print(f"\n" + "█"*60 + "\n PHASE 1: TRANSCRIPTION (FILE MODE) \n" + "█"*60)
+    print(f"\n" + "█"*60 + "\n PHASE 1: TRANSCRIPTION \n" + "█"*60)
 
-    model = WhisperModel("medium", device="cpu", compute_type="int8")
-    segments, info = model.transcribe(filename, language="tl") #
+    try:
+        raw_text = transcribe_file(filename, engine=transcription_engine, language="tl")
+    except Exception as e:
+        print(f"[Error]: Transcription failed -> {e}")
+        if transcription_engine == "groq":
+            use_fallback = input("[System] Do you want to fallback to local whisper? (y/n): ").strip().lower()
+            if use_fallback == "y":
+                try:
+                    raw_text = transcribe_file(filename, engine="local", language="tl")
+                except Exception as local_err:
+                    print(f"[Error]: Local fallback also failed -> {local_err}")
+                    return
+            else:
+                return
+        else:
+            return
 
-    # Convert segments to list immediately to ensure they are captured
-    segments = list(segments) 
-
-    if not segments:
+    if not raw_text.strip():
         print(f"[Warning]: No speech detected in {filename}. Check if the file has audio.")
         return
 
-    raw_text = " ".join([s.text for s in segments]) #
     print(f"\n[PHASE 1 RESULT]:\n{raw_text}")
+
+    # Load summarizer only when needed (after we have transcript text)
+    summarizer = AbstractiveSummarizer()
     
     # --- PHASE 2: SEGMENTATION ---
     print(f"\n" + "█"*60 + "\n PHASE 2: TOPIC SEGMENTATION \n" + "█"*60)

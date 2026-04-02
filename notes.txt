@@ -84,3 +84,8 @@ Deliverables:
 	- Stable demo pipeline from record/process -> action extraction -> export.
 	- Reproducible run logs for thesis defense questions.
 
+
+IF THE TRAINING IS DONE-
+FIX THE METHODS AND FUNCTIONS OF MAIN.PY
+   - clean
+   - separate
