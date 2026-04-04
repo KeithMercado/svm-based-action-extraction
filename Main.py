@@ -32,8 +32,12 @@ is_recording = True
 fs = 16000
 MODEL_PATH = "svm_model.pkl"
 
-# We use HashingVectorizer because it doesn't need to 'fit' on a specific vocabulary
-vectorizer = HashingVectorizer(n_features=2**10)
+# UPDATED: High-capacity vectorizer to handle 150k+ rows and Taglish prefixes
+vectorizer = HashingVectorizer(
+    n_features=2**16, 
+    ngram_range=(1, 3), 
+    alternate_sign=False
+)
 
 # --- PHASE 3: INCREMENTAL SVM LOAD/INIT ---
 def load_or_init_model():
@@ -228,7 +232,7 @@ def train_from_csv(file_paths, model):
             # Clean data: Remove empty rows
             df = df.dropna(subset=['text', 'label'])
             texts = df['text'].astype(str).tolist() # Ensure everything is a string
-            labels = [label_map.get(l.strip().lower(), 0) for l in df['label'].tolist()]
+            labels = [1 if 'action' in str(l).lower() else 0 for l in df['label'].tolist()]
             
             # Vectorize and Train
             X = vectorizer.transform(texts)
@@ -255,9 +259,23 @@ def main():
     mode = input(" >> Enter 1, 2, or 3: ").strip()
 
     if mode == "3":
-        datasets = ["ultimate_diversity_dataset_50k.csv"]
+        # 1. Point to your main balanced dataset
+        datasets = [
+            "ultimate_diversity_dataset_50k.csv",
+            "massive_diverse_dataset_50000.csv",
+            "expanded_meeting_contexts_20k.csv",
+            "meeting_specific_dataset_15k.csv",
+            "comprehensive_thesis_dataset_12k.csv",
+            "ami_multilingual_balanced.csv"
+        ]
+        
+        # 2. AUTOMATICALLY include corrections you made in previous sessions
+        if os.path.exists("user_corrections.csv"):
+            datasets.append("user_corrections.csv")
+            print("[System] Found 'user_corrections.csv'. Adding to training pool...")
+            
         clf = train_from_csv(datasets, clf)
-        return  # Exit early so we don't load BART or Whisper for training
+        return
 
     print("\n Choose Transcription Engine")
     print(" (1) Local Faster-Whisper (offline)")
@@ -382,22 +400,32 @@ def main():
     
     if ask_review == 'y':
         print(f"\n" + "█"*60 + "\n SELF-TRAINING REVIEW MODE \n" + "█"*60)
-        updated = False
+        new_corrections = []
+        
         for sent, pred in correction_data:
             user_input = input(f"AI marked as {pred}: '{sent}' -> Correct? (y/0/1): ").lower()
             
             if user_input != 'y':
                 correct_label = int(user_input)
+                # Store for the permanent CSV log
+                new_corrections.append({
+                    "text": sent, 
+                    "label": "action_item" if correct_label == 1 else "information_item"
+                })
+                # Real-time update to current session
                 clf.partial_fit(get_features(sent), [correct_label])
-                updated = True
-                print(f"  [Learned] '{sent}' is now recognized as {correct_label}")
 
-        if updated:
+        # UPDATED: Save to CSV so Mode 3 can use it later
+        if new_corrections:
+            df_new = pd.DataFrame(new_corrections)
+            file_exists = os.path.exists("user_corrections.csv")
+            df_new.to_csv("user_corrections.csv", mode='a', index=False, header=not file_exists)
+            
             with open(MODEL_PATH, 'wb') as f:
                 pickle.dump(clf, f)
-            print("[System] Model updated and saved.")
+            print(f"[System] Saved {len(new_corrections)} corrections. Model is now smarter.")
     else:
-        print("[System] Review skipped. Model remains unchanged.")
+        print("[System] Review skipped.")
 
 if __name__ == "__main__":
     main()
