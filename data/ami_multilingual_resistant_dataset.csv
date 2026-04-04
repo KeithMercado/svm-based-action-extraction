@@ -7,7 +7,7 @@ I will go . That's fine .,information_item
 "Nope , we're all set .",information_item
 "Which which is the clunky one , the one on left or on the right?. .",information_item
 Is that alright now ?,information_item
-Could you plug me in ?,action_item
+Could you plug me in ?,information_item
 "'S to do now is to decide how to fulfil what your stuff is ,",information_item
 Is it working ?,information_item
 And so think of this concept .,information_item
@@ -57,7 +57,7 @@ Designer . Okay .,information_item
 as you probably all know .,information_item
 "The very broad overview is original , trendy , and user-friendly .",information_item
 "Course , we'll have to go into a bit more um detail than that ,",information_item
-Would you like me to spell that ?,action_item
+Would you like me to spell that ?,information_item
 I'm the Marketing Expert .,information_item
 Tarik Rahman . T_A_R_I_K_ .,information_item
 it's in the it's in the folder,information_item
@@ -135,7 +135,7 @@ Okay . Cool .,information_item
 "Oh , sorry .",information_item
 "Okay , almost there .",information_item
 "Yeah , yeah .",information_item
-"We'll sta I'll use the PowerPoint , I guess .",action_item
+"We'll sta I'll use the PowerPoint , I guess .",information_item
 "How was that , was that fun ?",information_item
 Mm . Very fun .,information_item
 Oh right . Okay .,information_item
@@ -238,10 +238,10 @@ You can call me Abbie .,information_item
 "'S see . PowerPoint , that's not it .",information_item
 So this is our kick off meeting . Um,information_item
 "Hi I'm Chiara , I'm the um Marketing Expert .",information_item
-"Um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?",action_item
+"Um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?",information_item
 We'll get round to that later .,information_item
 My name is Chiara and I'm the Marketing Expert .,information_item
-"'Kay so we'll try to zip through this , since we're short on time .",action_item
+"'Kay so we'll try to zip through this , since we're short on time .",information_item
 Um hope your sessions went well .,information_item
 "Um so this is our functional design meeting ,",information_item
 "we're going to consider um user needs , technical effects , and the working design of our remote control .",information_item
@@ -349,7 +349,7 @@ Is everyone ready to start ?,information_item
 I'll just get the PowerPoint presentation up and running .,information_item
 "Okay . Um ,",information_item
 "on the agenda for this , um , for this particular meeting , we'll have your three presentations on what you've done since our last meeting , after we came up with um some general ideas of our design .",information_item
-"And , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing .",action_item
+"And , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing .",information_item
 The meeting will be forty minutes long .,information_item
 And um we will once again have Poppy as our first presenter .,information_item
 "Alright , and I will switch up PowerPoint .",information_item
@@ -364,7 +364,7 @@ how the user reacts with the the product .,information_item
 "Uh , uh , um .",information_item
 Soon as I get this .,information_item
 This is our last meeting .,information_item
-Um I'll go ahead and go through the minutes from the previous meeting .,action_item
+Um I'll go ahead and go through the minutes from the previous meeting .,information_item
 "Uh and then we'll have a , the prototype presentation .",information_item
 The prototype discussion .,information_item
 Okay . Mm .,information_item
@@ -572,7 +572,7 @@ Uh Abbing . A_ B_ B_ I_ N_ G_ .,information_item
 "I was a little short on time ,",information_item
 I received an email with uh a few possibilities on uh the materials .,information_item
 So I'll discuss them with you .,information_item
-Check check check check .,information_item
+Check check check check .,action_item
 The power light doesn't work .,information_item
 You turned it off .,information_item
 It's not saved yet .,information_item
@@ -602,7 +602,7 @@ welcome everyone to our next meeting .,information_item
 but um I've prepared a little presentation once again um or at least an agenda,information_item
 I think uh the biggest part of the presentation will be uh on your side .,information_item
 "Um we are here at the conceptual design meeting , which is hereby opened .",information_item
-Um once again I will try to uh write some minutes,action_item
+Um once again I will try to uh write some minutes,information_item
 "which I just from the previous meeting uh placed inside our project folder ,",information_item
 which was quite some typing .,information_item
 "Um today we once again have uh three presentations , if I'm right ,",information_item
@@ -678,9 +678,9 @@ What are we going to do .,information_item
 We m have to make a new remote control .,information_item
 "It has to be original , trendy and user-friendly .",information_item
 So we will get back th on that .,information_item
-First we have to make a functional design .,action_item
-"After that we have to make a conceptual design ,",action_item
-and then after that a detailed design .,action_item
+First we have to make a functional design .,information_item
+"After that we have to make a conceptual design ,",information_item
+and then after that a detailed design .,information_item
 So we'll discuss that later .,information_item
 So welcome back .,information_item
 That's my task . Okay .,information_item
@@ -738,3 +738,23 @@ I think it's more or less the same as we had .,information_item
 That's uh the integration story again .,information_item
 this is just a description of what we see there .,information_item
 "Special colour , yeah .",information_item
+Pakisubmit yung case study draft sa Friday.,action_item
+Basahin niyo yung Chapter 5 bago ang Monday.,action_item
+I-check mo yung layout ng remote control design.,action_item
+Ako na ang gagawa ng final report.,action_item
+Kailangan nating i-finalize yung budget ngayong hapon.,action_item
+"Tara, mag-decide na tayo sa kulay ng buttons.",action_item
+I-prepare mo yung presentation slides para bukas.,action_item
+Pakisulat yung mga napag-usapan natin.,action_item
+Dapat nating ayusin yung technical requirements.,action_item
+I-email mo sa akin yung documentation mamaya.,action_item
+May surprise quiz tayo sa Monday.,information_item
+Maliwanag ba yung instructions ko?,information_item
+Kasi kailangan ko yung feedback niyo para sa final submission.,information_item
+Diba sinabi ko na sa inyo kanina?,information_item
+Magkakaroon tayo ng meeting sa susunod na linggo.,information_item
+Open notes ba yung exam? Titingnan natin.,information_item
+Medyo tambak tayo ngayong midterms.,information_item
+"Listen up guys, may announcement ako.",information_item
+Basta focus muna kayo sa draft at reading.,information_item
+Wag niyo kakalimutan yung deadline.,information_item

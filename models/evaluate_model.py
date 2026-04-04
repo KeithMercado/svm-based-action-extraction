@@ -24,11 +24,16 @@ DATASETS = {
     "Expanded Contexts (20k)": os.path.join(DATA_FOLDER, "expanded_meeting_contexts_20k.csv"),
     "Massive Diverse (50k)": os.path.join(DATA_FOLDER, "massive_diverse_dataset_50000.csv"),
     "Ultimate Diversity (50k)": os.path.join(DATA_FOLDER, "ultimate_diversity_dataset_50k.csv"),
-    "AMI Corpus Dataset": os.path.join(DATA_FOLDER, "ami_dialogueActs_dataset.csv")
+    "AMI Corpus Dataset": os.path.join(DATA_FOLDER, "ami_dialogueActs_dataset.csv"),
+    "Multilingual Resistant (Refined)": os.path.join(DATA_FOLDER, "ami_multilingual_balanced.csv")
 }
 
-# Must match your Main.py exactly!
-vectorizer = HashingVectorizer(n_features=2**10)
+# UPDATED: Matches the high-capacity Main.py (2**16 = 65536)
+vectorizer = HashingVectorizer(
+    n_features=2**16, 
+    ngram_range=(1, 3), 
+    alternate_sign=False
+)
 
 def load_and_normalize(file_path):
     """Handles the different formats of your 10k and 20k files."""
