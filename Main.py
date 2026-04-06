@@ -25,6 +25,13 @@ except Exception as e:
     transcribe_with_groq = None
     groq_import_error = str(e)
 
+try:
+    from integrations.groq.summarize import summarize_with_groq
+    groq_summary_import_error = None
+except Exception as e:
+    summarize_with_groq = None
+    groq_summary_import_error = str(e)
+
 # --- INITIALIZATION ---
 nlp = spacy.load("en_core_web_sm")
 audio_queue = queue.Queue()
@@ -283,6 +290,12 @@ def main():
     engine_choice = input(" >> Enter 1 or 2: ").strip()
     transcription_engine = "groq" if engine_choice == "2" else "local"
 
+    print("\n Choose Summarization Engine")
+    print(" (1) Groq Llama (fast API)")
+    print(" (2) Local BART (slow on CPU)")
+    summary_choice = input(" >> Enter 1 or 2: ").strip()
+    summarization_engine = "groq" if summary_choice == "1" else "local"
+
     # --- Only load summarizer after transcription succeeds ---
     summarizer = None
     audio_data = []
@@ -346,8 +359,9 @@ def main():
 
     print(f"\n[PHASE 1 RESULT]:\n{raw_text}")
 
-    # Load summarizer only when needed (after we have transcript text)
-    summarizer = AbstractiveSummarizer()
+    # Load local summarizer only if explicitly selected.
+    if summarization_engine == "local":
+        summarizer = AbstractiveSummarizer()
     
     # --- PHASE 2: SEGMENTATION ---
     print(f"\n" + "█"*60 + "\n PHASE 2: TOPIC SEGMENTATION \n" + "█"*60)
@@ -384,9 +398,26 @@ def main():
         all_chunks_data.append({"chunk_text": " ".join(chunk), "actions": detected_actions})
 
     # --- PHASE 4: SUMMARY ---
-    print(f"\n" + "█"*60 + "\n PHASE 4: SUMMARIZATION (BART) \n" + "█"*60)
+    print(f"\n" + "█"*60 + "\n PHASE 4: SUMMARIZATION \n" + "█"*60)
     for i, data in enumerate(all_chunks_data):
-        summary = summarizer.generate_summary(data["chunk_text"], data["actions"])
+        if summarization_engine == "groq":
+            if summarize_with_groq is None:
+                print(f"[System] Groq summarizer unavailable: {groq_summary_import_error}")
+                print("[System] Falling back to local BART summarizer...")
+                if summarizer is None:
+                    summarizer = AbstractiveSummarizer()
+                summary = summarizer.generate_summary(data["chunk_text"], data["actions"])
+            else:
+                try:
+                    summary = summarize_with_groq(data["chunk_text"], data["actions"])
+                except Exception as e:
+                    print(f"[System] Groq summary failed: {e}")
+                    print("[System] Falling back to local BART summarizer...")
+                    if summarizer is None:
+                        summarizer = AbstractiveSummarizer()
+                    summary = summarizer.generate_summary(data["chunk_text"], data["actions"])
+        else:
+            summary = summarizer.generate_summary(data["chunk_text"], data["actions"])
         data["summary"] = summary 
         
         # PRINT Phase 4 results

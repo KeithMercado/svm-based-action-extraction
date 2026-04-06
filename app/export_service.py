@@ -1,4 +1,5 @@
 # app/export_service.py
+# use for exporting content to PDF or other formats. For now, it just prints the content and margins.
 
 class ExportService:
     def __init__(self):
