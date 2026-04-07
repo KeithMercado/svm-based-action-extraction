@@ -5,10 +5,13 @@ import os
 import tempfile
 import subprocess
 import glob
+import pickle
 from tkinter import simpledialog, filedialog
 
 from faster_whisper import WhisperModel
 import scipy.io.wavfile as wav
+from sklearn.linear_model import SGDClassifier
+from sklearn.feature_extraction.text import HashingVectorizer
 from app.export_service import ExportService
 
 try:
@@ -17,6 +20,21 @@ try:
 except Exception as e:
     transcribe_with_groq = None
     GROQ_IMPORT_ERROR = str(e)
+
+try:
+    from integrations.groq.summarize import summarize_with_groq
+    GROQ_SUMMARY_IMPORT_ERROR = None
+except Exception as e:
+    summarize_with_groq = None
+    GROQ_SUMMARY_IMPORT_ERROR = str(e)
+
+try:
+    from transformers import BartForConditionalGeneration, BartTokenizer
+    LOCAL_BART_IMPORT_ERROR = None
+except Exception as e:
+    BartForConditionalGeneration = None
+    BartTokenizer = None
+    LOCAL_BART_IMPORT_ERROR = str(e)
 
 # we can add pickle file loading here centralized for the whole app, 
 # so if we want to load a saved SVM model or something later we can do it here and pass it to the relevant components (pickle.load(MODEL_PATH) for example)
@@ -28,7 +46,88 @@ class AppLogic:
         self.exporter = ExportService()
         self.current_mode = None
         self.current_engine = None
+        self.current_summary_engine = "groq"
         self.file_transcriber = None
+        self.project_root = os.path.dirname(os.path.dirname(__file__))
+        self.model_path = os.path.join(self.project_root, "svm_model.pkl")
+        self.vectorizer = HashingVectorizer(n_features=2**16, ngram_range=(1, 3), alternate_sign=False)
+        self.classifier = self._load_or_init_classifier()
+        self.local_bart = None
+
+    def _load_or_init_classifier(self):
+        if os.path.exists(self.model_path):
+            with open(self.model_path, "rb") as f:
+                return pickle.load(f)
+
+        model = SGDClassifier(loss="hinge")
+        X_initial = self.vectorizer.transform(["info", "please do this"])
+        y_initial = [0, 1]
+        model.partial_fit(X_initial, y_initial, classes=[0, 1])
+        return model
+
+    def _get_features(self, sentence):
+        return self.vectorizer.transform([sentence])
+
+    def _load_local_bart(self):
+        if self.local_bart is not None:
+            return self.local_bart
+        if BartForConditionalGeneration is None or BartTokenizer is None:
+            raise RuntimeError(f"Local BART unavailable: {LOCAL_BART_IMPORT_ERROR}")
+
+        model_name = "facebook/bart-large-cnn"
+        tokenizer = BartTokenizer.from_pretrained(model_name)
+        model = BartForConditionalGeneration.from_pretrained(model_name)
+        self.local_bart = (tokenizer, model)
+        return self.local_bart
+
+    def _summarize_with_local_bart(self, text, action_items):
+        tokenizer, model = self._load_local_bart()
+        input_text = f"Meeting: {text}"
+        if action_items:
+            input_text += " Tasks: " + " . ".join(action_items)
+
+        inputs = tokenizer([input_text], max_length=1024, return_tensors="pt", truncation=True)
+        summary_ids = model.generate(
+            inputs["input_ids"],
+            num_beams=4,
+            min_length=10,
+            max_length=80,
+            no_repeat_ngram_size=3,
+            encoder_no_repeat_ngram_size=3,
+            early_stopping=True,
+            forced_bos_token_id=0,
+        )
+        return tokenizer.decode(summary_ids[0], skip_special_tokens=True).strip()
+
+    def _segment_topics(self, raw_text):
+        sentences = [s.strip() for s in raw_text.replace("so ", ". ").split(".") if len(s.strip()) > 5]
+        return [sentences[i:i + 5] for i in range(0, len(sentences), 5)]
+
+    def _extract_actions(self, topic_segments):
+        all_chunks_data = []
+        all_actions = []
+
+        for chunk in topic_segments:
+            detected_actions = []
+            for sentence in chunk:
+                prediction = self.classifier.predict(self._get_features(sentence))[0]
+                if prediction == 1:
+                    detected_actions.append(sentence)
+                    all_actions.append(sentence)
+
+            all_chunks_data.append({
+                "chunk_text": " ".join(chunk),
+                "actions": detected_actions,
+            })
+
+        return all_chunks_data, all_actions
+
+    def _summarize_chunk(self, text, actions, engine):
+        if engine == "groq":
+            if summarize_with_groq is None:
+                raise RuntimeError(f"Groq summarizer unavailable: {GROQ_SUMMARY_IMPORT_ERROR}")
+            return summarize_with_groq(text, actions)
+        return self._summarize_with_local_bart(text, actions)
 
     def _ensure_transcript_ready(self):
         self.view.placeholder_text.place_forget()
@@ -48,27 +147,39 @@ class AppLogic:
             "Select Mode:\n1 = Live Meeting\n2 = Process File\n3 = Train AI Model"
         )
         if mode is None:
-            return None, None
+            return None, None, None
 
         mode = mode.strip()
         if mode not in {"1", "2", "3"}:
             raise ValueError("Invalid mode. Please enter 1, 2, or 3.")
 
         engine = None
+        summary_engine = None
         if mode in {"1", "2"}:
             engine_input = simpledialog.askstring(
                 "Transcription Engine",
                 "Select Engine:\n1 = Local Faster-Whisper\n2 = Groq whisper-large-v3-turbo"
             )
             if engine_input is None:
-                return None, None
+                return None, None, None
 
             engine_input = engine_input.strip()
             if engine_input not in {"1", "2"}:
                 raise ValueError("Invalid engine. Please enter 1 or 2.")
             engine = "groq" if engine_input == "2" else "local"
 
-        return mode, engine
+            summary_input = simpledialog.askstring(
+                "Summarization Engine",
+                "Select Engine:\n1 = Groq Llama (fast API)\n2 = Local BART"
+            )
+            if summary_input is None:
+                return None, None, None
+            summary_input = summary_input.strip()
+            if summary_input not in {"1", "2"}:
+                raise ValueError("Invalid summarization engine. Please enter 1 or 2.")
+            summary_engine = "groq" if summary_input == "1" else "local"
+
+        return mode, engine, summary_engine
 
     def _transcribe_file(self, file_path, engine="local", language="tl"):
         if engine == "groq":
@@ -179,7 +290,7 @@ class AppLogic:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
-    def _process_file_mode(self, engine):
+    def _process_file_mode(self, engine, summary_engine):
         file_path = filedialog.askopenfilename(
             title="Select Audio or Video File",
             filetypes=[
@@ -194,6 +305,7 @@ class AppLogic:
 
         self._append_system_text(f"Processing file: {file_path}")
         self._append_system_text(f"Engine: {engine}")
+        self._append_system_text(f"Summary Engine: {summary_engine}")
         self._append_system_text("Transcribing... please wait.")
 
         def worker():
@@ -202,7 +314,53 @@ class AppLogic:
                 if not text.strip():
                     self.view.after(0, self._append_system_text, "No speech detected.")
                     return
-                self.view.after(0, self.update_ui_text, f"[00:00] {text}")
+
+                topic_segments = self._segment_topics(text)
+                all_chunks_data, action_items = self._extract_actions(topic_segments)
+
+                segment_summaries = []
+                for idx, chunk in enumerate(all_chunks_data, start=1):
+                    self.view.after(0, self._append_system_text, f"Summarizing segment {idx}/{len(all_chunks_data)}...")
+                    try:
+                        seg_summary = self._summarize_chunk(chunk["chunk_text"], chunk["actions"], summary_engine)
+                    except Exception as summary_err:
+                        self.view.after(0, self._append_system_text, f"Summary fallback due to: {summary_err}")
+                        seg_summary = self._summarize_with_local_bart(chunk["chunk_text"], chunk["actions"])
+                    chunk["summary"] = seg_summary
+                    segment_summaries.append(seg_summary)
+
+                if segment_summaries:
+                    combined_summary = " ".join(segment_summaries)
+                else:
+                    combined_summary = "No summary generated."
+
+                unique_actions = []
+                seen = set()
+                for item in action_items:
+                    key = item.strip().lower()
+                    if key and key not in seen:
+                        seen.add(key)
+                        unique_actions.append(item.strip())
+
+                pdf_path = self.exporter.generate_pdf(
+                    content=text,
+                    action_items=unique_actions,
+                    summary=combined_summary,
+                    segment_summaries=segment_summaries,
+                    source_file=file_path,
+                )
+
+                self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {text}")
+                self.view.after(0, self._append_system_text, "Action Items:")
+                if unique_actions:
+                    for item in unique_actions:
+                        self.view.after(0, self._append_system_text, f"- {item}")
+                else:
+                    self.view.after(0, self._append_system_text, "- None identified")
+
+                self.view.after(0, self._append_system_text, "Summary:")
+                self.view.after(0, self._append_system_text, combined_summary)
+                self.view.after(0, self._append_system_text, f"PDF generated: {pdf_path}")
             except Exception as e:
                 if engine == "groq":
                     self.view.after(0, self._append_system_text, f"Groq failed: {e}")
@@ -210,7 +368,26 @@ class AppLogic:
                     try:
                         local_text = self._transcribe_file(file_path, engine="local", language="tl")
                         if local_text.strip():
-                            self.view.after(0, self.update_ui_text, f"[00:00] {local_text}")
+                            topic_segments = self._segment_topics(local_text)
+                            all_chunks_data, action_items = self._extract_actions(topic_segments)
+                            segment_summaries = []
+                            for chunk in all_chunks_data:
+                                try:
+                                    segment_summaries.append(self._summarize_chunk(chunk["chunk_text"], chunk["actions"], summary_engine))
+                                except Exception:
+                                    segment_summaries.append(self._summarize_with_local_bart(chunk["chunk_text"], chunk["actions"]))
+
+                            combined_summary = " ".join(segment_summaries) if segment_summaries else "No summary generated."
+                            unique_actions = list(dict.fromkeys([a.strip() for a in action_items if a.strip()]))
+                            pdf_path = self.exporter.generate_pdf(
+                                content=local_text,
+                                action_items=unique_actions,
+                                summary=combined_summary,
+                                segment_summaries=segment_summaries,
+                                source_file=file_path,
+                            )
+                            self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {local_text}")
+                            self.view.after(0, self._append_system_text, f"PDF generated: {pdf_path}")
                             return
                     except Exception as local_err:
                         self.view.after(0, self._append_system_text, f"Local fallback failed: {local_err}")
@@ -226,15 +403,16 @@ class AppLogic:
     def handle_start(self):
         """Initializes audio stream, timer, and UI for recording."""
         try:
-            mode, engine = self._prompt_mode_and_engine()
+            mode, engine, summary_engine = self._prompt_mode_and_engine()
             if mode is None:
                 return
 
             self.current_mode = mode
             self.current_engine = engine
+            self.current_summary_engine = summary_engine or "groq"
 
             if mode == "2":
-                self._process_file_mode(engine)
+                self._process_file_mode(engine, self.current_summary_engine)
                 return
 
             if mode == "3":
