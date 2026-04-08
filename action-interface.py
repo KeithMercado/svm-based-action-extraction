@@ -8,6 +8,7 @@ def main():
     view = CompactActionApp(start_cmd=None, stop_cmd=None, export_cmd=None)
     
     logic = AppLogic(view, audio)
+    view.logic = logic
     
     # Final wiring
     view.btn_record.configure(command=logic.handle_start)

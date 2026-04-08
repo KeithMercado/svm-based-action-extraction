@@ -45,11 +45,12 @@ class AudioHandler:
             self.audio_queue.put(data_copy.flatten())
             self.all_audio_data.append(data_copy) # Collect data for the final file
 
-    def start_stream(self, live_transcription=True, live_transcriber=None):
+    def start_stream(self, live_transcription=True, live_transcriber=None, reset_buffer=True):
         self.is_listening = True
         self.live_transcription_enabled = live_transcription
         self.live_transcriber = live_transcriber
-        self.all_audio_data = []
+        if reset_buffer:
+            self.all_audio_data = []
         self._last_live_text = ""
         # Record the start time of the session
         self.start_time = time.time()
@@ -127,7 +128,7 @@ class AudioHandler:
             except Exception as e:
                 self.text_queue.put(f"[System] Live transcription warning: {e}")
 
-    def stop_stream(self):
+    def stop_stream(self, save=False, clear_buffer=False):
         self.is_listening = False
         if self.stream:
             self.stream.stop()
@@ -136,11 +137,15 @@ class AudioHandler:
         
         # Call the save method when stopping
         saved_path = None
-        if self.all_audio_data:
+        if save and self.all_audio_data:
             saved_path = self.save_recorded_audio()
-            self.all_audio_data = [] # Clear for next session
+            if clear_buffer:
+                self.all_audio_data = [] # Clear for next session
 
         return saved_path
+
+    def clear_recording_buffer(self):
+        self.all_audio_data = []
 
     def save_recorded_audio(self):
         """Saves the collected audio buffer into the output/videos folder."""
