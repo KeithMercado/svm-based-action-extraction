@@ -69,7 +69,7 @@ class LocalSummarizer:
 class Summarizer:
     """Orchestrates summarization using either Groq or Local BART."""
 
-    def __init__(self, engine="local"):
+    def __init__(self, engine="groq"):
         """
         Initialize the summarizer.
 
@@ -111,7 +111,6 @@ class Summarizer:
                     self.local_summarizer = LocalSummarizer()
                 return self.local_summarizer.generate_summary(text, action_items)
 
-        # Local BART
         if self.local_summarizer is None:
             self.local_summarizer = LocalSummarizer()
         return self.local_summarizer.generate_summary(text, action_items)

@@ -26,8 +26,6 @@ class ModelTrainer:
         Args:
             file_paths (list): List of CSV file paths to train on
         """
-        label_map = {"action_item": 1, "information_item": 0}
-
         for path in file_paths:
             if os.path.exists(path):
                 print(f"[System] Training on {path}...")
@@ -83,8 +81,6 @@ class ModelTrainer:
             if user_input != "y":
                 try:
                     correct_label = int(user_input)
-                    # Apply correction to model
-                    self.classifier.apply_correction(sent, correct_label)
                     # Store for CSV logging
                     new_corrections.append(
                         {
@@ -112,14 +108,12 @@ class ModelTrainer:
         if not corrections:
             return
 
-        df_new = pd.DataFrame(corrections)
-        file_exists = os.path.exists(csv_path)
-
-        df_new.to_csv(csv_path, mode="a", index=False, header=not file_exists)
+        self.classifier.apply_batch_corrections(
+            corrections,
+            persist_csv=True,
+            persist_model=True,
+        )
         print(f"[System] Saved {len(corrections)} corrections to {csv_path}")
-
-        # Save updated model
-        self.classifier.save_model()
         print("[System] Model updated and saved.")
 
     def get_training_datasets(self):

@@ -12,7 +12,6 @@ Phases:
 import os
 import sys
 import traceback
-import threading
 
 # Import core modules
 from core.transcriber import Transcriber
@@ -51,12 +50,9 @@ def select_transcription_engine():
 
 
 def select_summarization_engine():
-    """Get user's summarization engine choice."""
-    print("\n Choose Summarization Engine")
-    print(" (1) Groq Llama (fast API)")
-    print(" (2) Local BART (slow on CPU)")
-    summary_choice = input(" >> Enter 1 or 2: ").strip()
-    return "groq" if summary_choice == "1" else "local"
+    """Prioritize Groq Llama automatically with local fallback."""
+    print("\n[System] Model-Lllama summarization is prioritized automatically.")
+    return "groq"
 
 
 def mode_train(classifier, trainer):
@@ -101,7 +97,6 @@ def mode_live_meeting(
         # TODO: Implement real-time transcription thread for local whisper
         pass
 
-    # Record
     recorder.start_recording()
     recorder.save_recorded_audio(filename)
 
@@ -203,50 +198,35 @@ def process_file(
     segmenter.print_segments(topic_segments)
 
     # --- PHASE 3: ACTION ITEM EXTRACTION ---
-    print_phase_header(3, "ACTION ITEM EXTRACTION & SELF-TRAIN")
-    all_chunks_data = []
-    correction_data = []
+    print_phase_header(3, "ACTION ITEM EXTRACTION & MODEL-LLLAMA AUDIT")
+    audit_report = classifier.audit_transcript(raw_text, persist=False)
+    corrections = audit_report["corrections"]
 
-    for chunk in topic_segments:
-        result = classifier.classify_segment(chunk)
-        all_chunks_data.append(
-            {
-                "chunk_text": " ".join(chunk),
-                "actions": result["detected_actions"],
-                "classified_sentences": result["classified_sentences"],
-            }
-        )
-
-        # Store for review session
-        for item in result["classified_sentences"]:
-            correction_data.append((item["sentence"], item["label"]))
+    if corrections:
+        print(f"\n[Model-Lllama] Proposed {len(corrections)} corrections from the full transcript context.")
+    else:
+        print("\n[Model-Lllama] No corrections were proposed.")
 
     # --- PHASE 4: SUMMARIZATION ---
     print_phase_header(4, "SUMMARIZATION")
-    for i, data in enumerate(all_chunks_data, 1):
-        summary = summarizer.generate_summary(data["chunk_text"], data["actions"])
-        data["summary"] = summary
+    summary = summarizer.generate_summary(raw_text, audit_report["action_items"])
+    print(f"\n[SUMMARY]:\n{summary}")
 
-        # Print Phase 4 results
-        print(f"\n--- Summary for Segment {i} ---")
-        print(f"INPUT: {data['chunk_text'][:100]}...")
-        print(f"OUTPUT: {summary}")
+    # --- SINGLE END-OF-RUN CORRECTION VERIFICATION ---
+    if corrections:
+        print("\n" + "=" * 60)
+        ask_review = input(
+            "Apply all Model-Lllama corrections to the student model and CSV? (y/n): "
+        ).strip().lower()
 
-    # --- SELF-TRAINING REVIEW MODE ---
-    print("\n" + "=" * 60)
-    ask_review = input(
-        "Do you want to review this session to improve the AI? (y/n): "
-    ).lower()
-
-    if ask_review == "y":
-        print("\n" + "█" * 60 + "\n SELF-TRAINING REVIEW MODE \n" + "█" * 60)
-        trainer = ModelTrainer(classifier)
-        new_corrections = trainer.collect_user_corrections(correction_data)
-
-        if new_corrections:
-            trainer.save_corrections_to_csv(new_corrections)
+        if ask_review == "y":
+            print("\n" + "█" * 60 + "\n MODEL-LLLAMA CORRECTION APPLY MODE \n" + "█" * 60)
+            trainer = ModelTrainer(classifier)
+            trainer.save_corrections_to_csv(corrections)
+        else:
+            print("[System] Model-Lllama corrections skipped.")
     else:
-        print("[System] Review skipped.")
+        print("[System] No Model-Lllama corrections to apply.")
 
 
 def main():
@@ -269,8 +249,7 @@ def main():
         if mode == "1":
             # Live meeting mode
             transcription_engine = select_transcription_engine()
-            summarization_engine = select_summarization_engine()
-            summarizer = Summarizer(engine=summarization_engine)
+            summarizer = Summarizer(engine=select_summarization_engine())
 
             mode_live_meeting(
                 transcriber, segmenter, classifier, summarizer, transcription_engine
@@ -279,8 +258,7 @@ def main():
         elif mode == "2":
             # File processing mode
             transcription_engine = select_transcription_engine()
-            summarization_engine = select_summarization_engine()
-            summarizer = Summarizer(engine=summarization_engine)
+            summarizer = Summarizer(engine=select_summarization_engine())
 
             mode_file_processing(
                 transcriber, segmenter, classifier, summarizer, transcription_engine

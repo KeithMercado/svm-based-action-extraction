@@ -1,30 +1,61 @@
 """
 Phase 3: Action Item Classifier Module
-Handles SVM model loading, feature engineering, and action item prediction.
+Handles SVM model loading, feature engineering, Model-Lllama auditing, and action item prediction.
 """
 
+import json
+import math
 import os
 import pickle
+import re
+
 import spacy
-from sklearn.linear_model import SGDClassifier
 from sklearn.feature_extraction.text import HashingVectorizer
+from sklearn.linear_model import SGDClassifier
+
+try:
+    from dotenv import load_dotenv
+except Exception:  # pragma: no cover - optional dependency
+    load_dotenv = None
+
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except Exception:  # pragma: no cover - optional dependency
+    Groq = None
+    GROQ_AVAILABLE = False
 
 
 class ActionItemClassifier:
-    """Classifies text as action items or information items using SVM."""
+    """Classifies text as action items or information items using an incremental SVM."""
 
-    def __init__(self, model_path="svm_model.pkl", vectorizer_n_features=2**16):
+    def __init__(
+        self,
+        model_path="svm_model.pkl",
+        vectorizer_n_features=2**16,
+        confidence_threshold=0.70,
+        corrections_csv_path="user_corrections.csv",
+        model_llama_name=None,
+    ):
         """
         Initialize the classifier.
 
         Args:
             model_path (str): Path to save/load the SVM model
             vectorizer_n_features (int): Number of features for the vectorizer
+            confidence_threshold (float): Student confidence threshold that triggers audit
+            corrections_csv_path (str): CSV path for persisted corrections
+            model_llama_name (str | None): Groq model used as Model-Lllama
         """
         self.model_path = model_path
+        self.corrections_csv_path = corrections_csv_path
+        self.confidence_threshold = confidence_threshold
+        self.model_llama_name = model_llama_name or os.getenv(
+            "GROQ_MODEL_LLAMA", "llama-3.1-8b-instant"
+        )
+        self.model_llama_available = GROQ_AVAILABLE
         self.nlp = spacy.load("en_core_web_sm")
 
-        # High-capacity vectorizer to handle 150k+ rows and Taglish prefixes
         self.vectorizer = HashingVectorizer(
             n_features=vectorizer_n_features,
             ngram_range=(1, 3),
@@ -33,58 +64,419 @@ class ActionItemClassifier:
 
         self.clf = self._load_or_init_model()
 
+    def _load_dotenv(self):
+        """Load environment variables if python-dotenv is available."""
+        if load_dotenv is not None:
+            load_dotenv()
+
     def _load_or_init_model(self):
         """Load existing model or initialize a new one."""
         if os.path.exists(self.model_path):
             print(f"[System] Loading existing model from {self.model_path}...")
-            with open(self.model_path, "rb") as f:
-                return pickle.load(f)
+            with open(self.model_path, "rb") as handle:
+                return pickle.load(handle)
+
+        print("[System] Initializing new SVM model...")
+        model = SGDClassifier(loss="hinge")
+        X_initial = self.vectorizer.transform(["info", "please do this"])
+        y_initial = [0, 1]
+        model.partial_fit(X_initial, y_initial, classes=[0, 1])
+        return model
+
+    def _sigmoid(self, value):
+        """Numerically stable sigmoid helper."""
+        if value >= 0:
+            z = math.exp(-value)
+            return 1 / (1 + z)
+        z = math.exp(value)
+        return z / (1 + z)
+
+    def _decision_to_confidence(self, features):
+        """Convert the model margin into a confidence-like score in [0, 1]."""
+        margin = self.clf.decision_function(features)
+        if hasattr(margin, "__len__"):
+            margin_value = float(margin[0])
         else:
-            print("[System] Initializing new SVM model...")
-            model = SGDClassifier(loss="hinge")
-            # Initial "seed" data to establish classes [0, 1]
-            X_initial = self.vectorizer.transform(
-                ["info", "please do this"]
+            margin_value = float(margin)
+
+        prediction = 1 if margin_value >= 0 else 0
+        confidence = self._sigmoid(abs(margin_value))
+        return prediction, confidence, margin_value
+
+    def _normalize_label(self, label_text):
+        """Normalize label text into 0/1."""
+        if label_text is None:
+            return None
+
+        normalized = str(label_text).strip().lower()
+        if normalized in {"1", "action", "action_item", "action item", "task", "todo"}:
+            return 1
+        if normalized in {"0", "info", "information", "information_item", "information item"}:
+            return 0
+        return None
+
+    def _extract_json_object(self, text):
+        """Extract a JSON object from a Groq response that may include code fences."""
+        if not text:
+            return None
+
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            stripped = stripped.strip("`").strip()
+            if stripped.startswith("json"):
+                stripped = stripped[4:].lstrip()
+
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            return None
+
+        candidate = stripped[start : end + 1]
+        try:
+            return json.loads(candidate)
+        except Exception:
+            return None
+
+    def _split_sentences(self, raw_text):
+        """Split transcript into lightweight sentence-like units."""
+        return [
+            sentence.strip()
+            for sentence in raw_text.replace("so ", ". ").split(".")
+            if len(sentence.strip()) > 5
+        ]
+
+    def _looks_like_specific_task(self, sentence):
+        """Detect whether a sentence is a concrete assigned task with ownership or timing."""
+        lower = sentence.lower().strip()
+
+        task_markers = [
+            r"\bplease\b",
+            r"\bneed(s)? to\b",
+            r"\bshould\b",
+            r"\bmust\b",
+            r"\bassign(ed|ment)?\b",
+            r"\bwill\b",
+            r"\bcan you\b",
+            r"\bcould you\b",
+            r"\bby\s+(?:tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm)?|end of day|eod|next week|next month)\b",
+            r"\bdeadline\b",
+            r"\bfollow up\b",
+            r"\baction item\b",
+            r"\bowner\b",
+            r"\bresponsible\b",
+            r"\btask\b",
+            r"\bdeliverable\b",
+            r"\bsubmit\b",
+            r"\bsend\b",
+            r"\bprepare\b",
+            r"\breview\b",
+            r"\bcomplete\b",
+            r"\bfinalize\b",
+            r"\bupdate\b",
+            r"\bcoordinate\b",
+        ]
+
+        ownership_markers = [
+            r"\bfor (?:you|us|him|her|them|the team|the group)\b",
+            r"\bassigned to\b",
+            r"\byou will\b",
+            r"\byou need to\b",
+            r"\blet's\b",
+            r"\bwe need to\b",
+            r"\bthis needs to\b",
+        ]
+
+        has_task_marker = any(re.search(pattern, lower) for pattern in task_markers)
+        has_owner_marker = any(re.search(pattern, lower) for pattern in ownership_markers)
+        has_deadline = bool(
+            re.search(
+                r"\b(by|before|within|due|until)\b.*\b(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm)?|eod|end of day|next week|next month)\b",
+                lower,
             )
-            y_initial = [0, 1]
-            model.partial_fit(X_initial, y_initial, classes=[0, 1])
-            return model
+        )
+
+        return has_task_marker or has_owner_marker or has_deadline
+
+    def _model_llama_verdict(self, sentence, transcript_context):
+        """Ask Groq Llama to verify a single sentence using the whole transcript as context."""
+        if not self.model_llama_available:
+            return {
+                "available": False,
+                "label": None,
+                "confidence": None,
+                "reason": "Groq Model-Lllama is unavailable.",
+                "raw": None,
+            }
+
+        self._load_dotenv()
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            return {
+                "available": False,
+                "label": None,
+                "confidence": None,
+                "reason": "GROQ_API_KEY not found.",
+                "raw": None,
+            }
+
+        client = Groq(api_key=api_key)
+        system_prompt = (
+            "You are Model-Lllama, the transcript-level verifier in an active learning pipeline. "
+            "Use the full meeting transcript context, not isolated segments, to classify each Taglish sentence. "
+            "Only label action_item when the sentence is a concrete assigned task, request, follow-up, or deliverable that requires completion to move the project forward. "
+            "The sentence should usually include ownership, responsibility, a recipient, or a timeframe/deadline. "
+            "Do not label generic action words, verbs, or vague mentions of activity as action_item. "
+            "Examples that are NOT action_item: 'We discussed the plan', 'We will improve the process', 'They talked about sending updates later'. "
+            "Return strict JSON only with keys label, confidence, and reason. "
+            "Use action_item only for specific assigned tasks, concrete follow-ups, and deadline-bound work. "
+            "Use information_item for status updates, explanations, facts, and general discussion."
+        )
+        user_prompt = (
+            "Full transcript context:\n"
+            f"{transcript_context[:12000]}\n\n"
+            "Sentence to verify:\n"
+            f"{sentence}\n\n"
+            'Return JSON only, for example: {"label":"action_item","confidence":0.93,"reason":"..."}'
+        )
+
+        result = client.chat.completions.create(
+            model=self.model_llama_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0,
+            max_completion_tokens=220,
+        )
+
+        content = result.choices[0].message.content if result.choices else ""
+        payload = self._extract_json_object(content)
+
+        if payload is None:
+            lowered = content.lower()
+            if "action_item" in lowered:
+                label = 1
+            elif "information_item" in lowered:
+                label = 0
+            else:
+                return {
+                    "available": True,
+                    "label": None,
+                    "confidence": None,
+                    "reason": content.strip(),
+                    "raw": content,
+                }
+
+            return {
+                "available": True,
+                "label": label,
+                "confidence": None,
+                "reason": content.strip(),
+                "raw": content,
+            }
+
+        label = self._normalize_label(payload.get("label"))
+        confidence = payload.get("confidence")
+        try:
+            confidence = float(confidence) if confidence is not None else None
+        except Exception:
+            confidence = None
+
+        return {
+            "available": True,
+            "label": label,
+            "confidence": confidence,
+            "reason": str(payload.get("reason", "")).strip(),
+            "raw": payload,
+        }
+
+    def _enforce_action_item_specificity(self, sentence, model_llama_label, model_llama_reason):
+        """
+        Ensure action_item labels are reserved for specific tasks with ownership or timing.
+
+        If Model-Lllama marks a sentence as action_item but the sentence does not look like a real
+        assigned task, downgrade it to information_item to avoid generic action words.
+        """
+        if int(model_llama_label) != 1:
+            return int(model_llama_label)
+
+        if self._looks_like_specific_task(sentence):
+            return 1
+
+        reason_text = (model_llama_reason or "").lower()
+        specificity_hints = ["assigned", "deadline", "due", "owner", "responsible", "deliverable", "follow-up", "task"]
+        if any(hint in reason_text for hint in specificity_hints):
+            return 1
+
+        return 0
+
+    def _append_corrections_to_csv(self, corrections):
+        """Append a batch of corrections to the persistent CSV log."""
+        if not corrections:
+            return
+
+        import pandas as pd
+
+        df_new = pd.DataFrame(corrections)
+        file_exists = os.path.exists(self.corrections_csv_path)
+        df_new.to_csv(
+            self.corrections_csv_path,
+            mode="a",
+            index=False,
+            header=not file_exists,
+        )
+
+    def _teach_student(self, sentence, correct_label):
+        """Incrementally train the student model on one confirmed label."""
+        features = self.get_features(sentence)
+        self.clf.partial_fit(features, [int(correct_label)], classes=[0, 1])
+
+    def save_model(self):
+        """Save the current model to disk."""
+        with open(self.model_path, "wb") as handle:
+            pickle.dump(self.clf, handle)
+        print(f"[System] Model saved to {self.model_path}")
 
     def get_features(self, sentence):
-        """
-        Get vectorized representation of text.
-
-        Args:
-            sentence (str): Input text
-
-        Returns:
-            sparse matrix: Vectorized representation
-        """
+        """Return the vectorized representation of a sentence."""
         return self.vectorizer.transform([sentence])
 
-    def predict(self, sentence):
-        """
-        Predict if a sentence is an action item (1) or information (0).
-
-        Args:
-            sentence (str): Input sentence
-
-        Returns:
-            int: 0 for information, 1 for action item
-        """
+    def predict_with_confidence(self, sentence):
+        """Return the student prediction, confidence, and raw score."""
         features = self.get_features(sentence)
-        return self.clf.predict(features)[0]
+        prediction, confidence, raw_score = self._decision_to_confidence(features)
+        return {
+            "label": int(prediction),
+            "confidence": float(confidence),
+            "score": float(raw_score),
+        }
+
+    def predict(self, sentence):
+        """Predict whether a sentence is an action item or information."""
+        return self.predict_with_confidence(sentence)["label"]
+
+    def audit_sentence(self, sentence, transcript_context, persist=False):
+        """
+        Audit a single sentence against Model-Lllama using the full transcript context.
+
+        The student triggers audit when the confidence is low or when it predicts action_item.
+        """
+        student = self.predict_with_confidence(sentence)
+        needs_audit = student["confidence"] < self.confidence_threshold
+
+        model_llama = None
+        final_label = student["label"]
+        label_source = "student"
+
+        if needs_audit:
+            model_llama = self._model_llama_verdict(sentence, transcript_context)
+            if model_llama.get("available") and model_llama.get("label") is not None:
+                final_label = self._enforce_action_item_specificity(
+                    sentence,
+                    model_llama["label"],
+                    model_llama.get("reason"),
+                )
+                label_source = "model_llama"
+
+        correction = None
+        if final_label != student["label"]:
+            correction = {
+                "text": sentence,
+                "label": "action_item" if final_label == 1 else "information_item",
+            }
+
+        result = {
+            "sentence": sentence,
+            "student_label": int(student["label"]),
+            "student_confidence": float(student["confidence"]),
+            "student_score": float(student["score"]),
+            "audited": bool(needs_audit),
+            "model_llama": model_llama,
+            "model_llama_label": model_llama.get("label") if model_llama else None,
+            "final_label": int(final_label),
+            "label_source": label_source,
+            "correction": correction,
+        }
+
+        if persist and correction is not None:
+            self.apply_batch_corrections([correction], persist_csv=True, persist_model=True)
+
+        return result
+
+    def audit_transcript(self, raw_text, persist=False):
+        """
+        Audit a whole transcription using the full context for every sentence.
+
+        Returns a transcript-level report and a correction queue that can be applied once.
+        """
+        sentences = self._split_sentences(raw_text)
+        evaluations = []
+        corrections = []
+        action_items = []
+
+        for sentence in sentences:
+            result = self.audit_sentence(
+                sentence,
+                transcript_context=raw_text,
+                persist=False,
+            )
+            evaluations.append(result)
+
+            if result["final_label"] == 1:
+                action_items.append(sentence)
+
+            if result["correction"] is not None:
+                corrections.append(result["correction"])
+
+            status = "[!] Action" if result["final_label"] == 1 else "[ ] Info"
+            model_llama_tag = result["label_source"]
+            print(
+                f"  {status} (student_conf={result['student_confidence']:.2f}, source={model_llama_tag}): {sentence}"
+            )
+            if result["model_llama_label"] is not None:
+                print(f"    -> Model-Lllama label: {result['model_llama_label']}")
+
+        return {
+            "transcript": raw_text,
+            "sentences": evaluations,
+            "corrections": corrections,
+            "action_items": action_items,
+        }
+
+    def apply_batch_corrections(self, corrections, persist_csv=True, persist_model=True):
+        """
+        Teach the student model using a batch of confirmed corrections.
+
+        This is the only write path used after the single end-of-run confirmation.
+        """
+        if not corrections:
+            return
+
+        for correction in corrections:
+            label = 1 if correction["label"] == "action_item" else 0
+            self._teach_student(correction["text"], label)
+
+        if persist_csv:
+            self._append_corrections_to_csv(corrections)
+
+        if persist_model:
+            self.save_model()
+
+    def train_on_batch(self, texts, labels):
+        """Incrementally train the model on a batch of data."""
+        X = self.vectorizer.transform(texts)
+        self.clf.partial_fit(X, labels, classes=[0, 1])
+
+    def apply_correction(self, sentence, correct_label):
+        """Compatibility helper for a single correction."""
+        correction = {
+            "text": sentence,
+            "label": "action_item" if int(correct_label) == 1 else "information_item",
+        }
+        self.apply_batch_corrections([correction], persist_csv=True, persist_model=True)
 
     def classify_segment(self, segment):
-        """
-        Classify all sentences in a segment.
-
-        Args:
-            segment (list): List of sentences
-
-        Returns:
-            dict: Classification results
-        """
+        """Classify a segment without Model-Lllama auditing for compatibility."""
         classified_sentences = []
         detected_actions = []
 
@@ -92,9 +484,7 @@ class ActionItemClassifier:
             prediction = self.predict(sent)
             status = "[!] Action" if prediction == 1 else "[ ] Info"
             print(f"  {status}: {sent}")
-
             classified_sentences.append({"sentence": sent, "label": prediction})
-
             if prediction == 1:
                 detected_actions.append(sent)
 
@@ -103,38 +493,12 @@ class ActionItemClassifier:
             "detected_actions": detected_actions,
         }
 
-    def train_on_batch(self, texts, labels):
-        """
-        Incrementally train the model on a batch of data.
-
-        Args:
-            texts (list): List of text samples
-            labels (list): List of labels (0 or 1)
-        """
-        X = self.vectorizer.transform(texts)
-        self.clf.partial_fit(X, labels, classes=[0, 1])
-
-    def save_model(self):
-        """Save the current model to disk."""
-        with open(self.model_path, "wb") as f:
-            pickle.dump(self.clf, f)
-        print(f"[System] Model saved to {self.model_path}")
-
-    def apply_correction(self, sentence, correct_label):
-        """
-        Apply user correction for a single sentence (self-training).
-
-        Args:
-            sentence (str): The sentence to correct
-            correct_label (int): Corrected label (0 or 1)
-        """
-        features = self.get_features(sentence)
-        self.clf.partial_fit(features, [correct_label], classes=[0, 1])
-
     def get_model_info(self):
         """Get information about the current model."""
         return {
             "model_path": self.model_path,
-            "model_classes": self.clf.classes_.tolist() if hasattr(self.clf, 'classes_') else None,
+            "model_classes": self.clf.classes_.tolist() if hasattr(self.clf, "classes_") else None,
             "vectorizer_features": self.vectorizer.n_features,
+            "confidence_threshold": self.confidence_threshold,
+            "model_llama_name": self.model_llama_name,
         }
