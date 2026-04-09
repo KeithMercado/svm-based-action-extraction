@@ -18,6 +18,9 @@ class VideoFileManager(ctk.CTkToplevel):
         # Get base directory
         self.base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         self.output_dir = os.path.join(self.base_dir, "output", "videos")
+        self._processing_active = False
+        self._processing_base_text = "Processing file"
+        self._processing_dot_count = 0
         
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
@@ -245,41 +248,107 @@ class VideoFileManager(ctk.CTkToplevel):
     def _transfer_to_pdf(self, file_path):
         """Extract processes from video using a thread to prevent GUI freezing"""
         
-        # Update status so user knows something is happening
-        self.status_label.configure(text=f"Processing {os.path.basename(file_path)}...", text_color="#3a7ebf")
+        self._start_processing_status(os.path.basename(file_path))
+        app_logic = getattr(self.master, "logic", None)
+        if app_logic is not None:
+            self.after(
+                0,
+                lambda: app_logic._append_system_text(
+                    f"Video manager: currently processing {os.path.basename(file_path)}..."
+                ),
+            )
 
         def run_process():
-            print(f"\n{'='*60}")
-            print(f"[PDF TRANSFER] Processing: {os.path.basename(file_path)}")
-            print(f"{'='*60}\n")
-            
+            started = datetime.now()
             try:
-                # subprocess.run is blocking, but it's okay because it's inside a thread
-                subprocess.run(
+                if app_logic is not None:
+                    result_data = app_logic.process_file_path_for_pdf(file_path)
+                    elapsed = (datetime.now() - started).total_seconds()
+                    print(f"[Debug] Video->PDF in-app processing finished in {elapsed:.1f}s")
+                    self.after(
+                        0,
+                        lambda: self._finish_processing_status(
+                            f"Finished in {elapsed:.1f}s: {os.path.basename(file_path)}",
+                            "green",
+                        ),
+                    )
+                    self.after(
+                        0,
+                        lambda: app_logic._append_system_text(
+                            f"Video manager PDF generated: {result_data['pdf_path']}"
+                        ),
+                    )
+                    self.after(
+                        0,
+                        lambda: app_logic._append_system_text(
+                            f"Video manager timing: total={elapsed:.1f}s"
+                        ),
+                    )
+                    return
+
+                # Fallback for environments where app logic is unavailable
+                result = subprocess.run(
                     [sys.executable, "Main.py", file_path],
                     cwd=self.base_dir,
-                    capture_output=False,
+                    capture_output=True,
+                    text=True,
                     check=True
                 )
+                elapsed = (datetime.now() - started).total_seconds()
+                print(f"[Debug] Video->PDF processing finished in {elapsed:.1f}s")
+                if result.stdout:
+                    print("[Debug] Main.py stdout (tail):", result.stdout[-600:])
+                if result.stderr:
+                    print("[Debug] Main.py stderr (tail):", result.stderr[-600:])
                 
                 # used the self.after method to update the status label from the thread, 
                 # since we can't update GUI elements directly from a non-main thread
-                self.after(0, lambda: self.status_label.configure(
-                    text=f"Finished: {os.path.basename(file_path)}", 
-                    text_color="green"
+                self.after(0, lambda: self._finish_processing_status(
+                    f"Finished in {elapsed:.1f}s: {os.path.basename(file_path)}",
+                    "green"
                 ))
-                print(f"\n[System] Processing complete.\n")
+                if app_logic is not None:
+                    self.after(
+                        0,
+                        lambda: app_logic._append_system_text(
+                            f"Video manager processing finished in {elapsed:.1f}s: {os.path.basename(file_path)}"
+                        ),
+                    )
 
             except Exception as e:
-                print(f"[Error] Failed to process file: {e}\n")
-                self.after(0, lambda: self.status_label.configure(
-                    text="Error during processing", 
-                    text_color="red"
-                ))
+                elapsed = (datetime.now() - started).total_seconds()
+                print(f"[Error] Video->PDF processing failed after {elapsed:.1f}s: {e}")
+                self.after(0, lambda: self._finish_processing_status("Error during processing", "red"))
+                if app_logic is not None:
+                    self.after(
+                        0,
+                        lambda: app_logic._append_system_text(
+                            f"Video manager processing failed after {elapsed:.1f}s: {e}"
+                        ),
+                    )
 
         # start the thread as 'daemon' so it closes if the app is closed
         process_thread = threading.Thread(target=run_process, daemon=True)
         process_thread.start()
+
+    def _start_processing_status(self, file_name):
+        self._processing_active = True
+        self._processing_base_text = f"Processing {file_name}"
+        self._processing_dot_count = 0
+        self._animate_processing_status()
+
+    def _animate_processing_status(self):
+        if not self._processing_active:
+            return
+
+        dots = "." * ((self._processing_dot_count % 3) + 1)
+        self.status_label.configure(text=f"{self._processing_base_text}{dots}", text_color="#3a7ebf")
+        self._processing_dot_count += 1
+        self.after(450, self._animate_processing_status)
+
+    def _finish_processing_status(self, text, color):
+        self._processing_active = False
+        self.status_label.configure(text=text, text_color=color)
     
     def _on_search(self, event=None):
         """Filter files based on search query"""

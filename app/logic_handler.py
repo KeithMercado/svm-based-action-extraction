@@ -6,7 +6,7 @@ import tempfile
 import subprocess
 import glob
 import pickle
-from tkinter import simpledialog, filedialog
+from tkinter import simpledialog, filedialog, messagebox
 
 from faster_whisper import WhisperModel
 import scipy.io.wavfile as wav
@@ -53,6 +53,9 @@ class AppLogic:
         self.vectorizer = HashingVectorizer(n_features=2**16, ngram_range=(1, 3), alternate_sign=False)
         self.classifier = self._load_or_init_classifier()
         self.local_bart = None
+
+    def _format_secs(self, seconds):
+        return f"{seconds:.1f}s"
 
     def _load_or_init_classifier(self):
         if os.path.exists(self.model_path):
@@ -141,6 +144,29 @@ class AppLogic:
         self.view.transcript_box.see("end")
         self.view.transcript_box.configure(state="disabled")
 
+    def _set_processing_state(self, active, base_text="● PROCESSING FILE"):
+        if active:
+            self._processing_state_active = True
+            self._processing_state_base = base_text
+            self._processing_state_step = 0
+            self._tick_processing_state()
+            return
+
+        self._processing_state_active = False
+        self.view.status_indicator.configure(text="● READY TO RECORD", text_color="#4a4d50")
+
+    def _tick_processing_state(self):
+        if not getattr(self, "_processing_state_active", False):
+            return
+
+        dots = "." * ((getattr(self, "_processing_state_step", 0) % 3) + 1)
+        self.view.status_indicator.configure(
+            text=f"{self._processing_state_base}{dots}",
+            text_color="#3a7ebf",
+        )
+        self._processing_state_step = getattr(self, "_processing_state_step", 0) + 1
+        self.view.after(450, self._tick_processing_state)
+
     def _prompt_mode_and_engine(self):
         mode = simpledialog.askstring(
             "Mode Selection",
@@ -181,7 +207,7 @@ class AppLogic:
 
         return mode, engine, summary_engine
 
-    def _transcribe_file(self, file_path, engine="local", language="tl"):
+    def _transcribe_file(self, file_path, engine="local", language="tl", quiet=False):
         if engine == "groq":
             if transcribe_with_groq is None:
                 raise RuntimeError(f"Groq integration unavailable: {GROQ_IMPORT_ERROR}")
@@ -191,12 +217,13 @@ class AppLogic:
             file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
 
             if is_video or file_size_mb > 12:
-                self._append_system_text(
-                    f"Using Groq chunked mode (size={file_size_mb:.1f} MB) for faster, stable processing..."
-                )
-                return self._transcribe_groq_chunked(file_path, language=language)
+                if not quiet:
+                    self._append_system_text(
+                        f"Using Groq chunked mode (size={file_size_mb:.1f} MB) for faster, stable processing..."
+                    )
+                return self._transcribe_groq_chunked(file_path, language=language, quiet=quiet)
 
-            return self._transcribe_groq_with_retry(file_path, language=language)
+            return self._transcribe_groq_with_retry(file_path, language=language, quiet=quiet)
 
         if self.file_transcriber is None:
             self.file_transcriber = WhisperModel("medium", device="cpu", compute_type="int8")
@@ -218,14 +245,14 @@ class AppLogic:
         except Exception:
             return False
 
-    def _transcribe_groq_with_retry(self, file_path, language="tl", retries=3):
+    def _transcribe_groq_with_retry(self, file_path, language="tl", retries=3, quiet=False):
         last_error = None
         for attempt in range(1, retries + 1):
             try:
                 return transcribe_with_groq(file_path, language=language)
             except Exception as e:
                 last_error = e
-                if attempt < retries:
+                if attempt < retries and not quiet:
                     wait_s = 2 * attempt
                     self._append_system_text(
                         f"Groq attempt {attempt}/{retries} failed: {e}. Retrying in {wait_s}s..."
@@ -234,10 +261,11 @@ class AppLogic:
 
         raise RuntimeError(f"Groq failed after {retries} attempts: {last_error}")
 
-    def _transcribe_groq_chunked(self, file_path, language="tl", segment_seconds=180):
+    def _transcribe_groq_chunked(self, file_path, language="tl", segment_seconds=180, quiet=False):
         if not self._can_use_ffmpeg():
-            self._append_system_text("ffmpeg not found. Falling back to direct Groq upload.")
-            return self._transcribe_groq_with_retry(file_path, language=language)
+            if not quiet:
+                self._append_system_text("ffmpeg not found. Falling back to direct Groq upload.")
+            return self._transcribe_groq_with_retry(file_path, language=language, quiet=quiet)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             chunk_pattern = os.path.join(temp_dir, "chunk_%03d.mp3")
@@ -257,20 +285,23 @@ class AppLogic:
 
             prep = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, check=False)
             if prep.returncode != 0:
-                self._append_system_text("ffmpeg chunking failed. Falling back to direct Groq upload.")
-                return self._transcribe_groq_with_retry(file_path, language=language)
+                if not quiet:
+                    self._append_system_text("ffmpeg chunking failed. Falling back to direct Groq upload.")
+                return self._transcribe_groq_with_retry(file_path, language=language, quiet=quiet)
 
             chunk_files = sorted(glob.glob(os.path.join(temp_dir, "chunk_*.mp3")))
             if not chunk_files:
-                self._append_system_text("No chunks produced. Falling back to direct Groq upload.")
-                return self._transcribe_groq_with_retry(file_path, language=language)
+                if not quiet:
+                    self._append_system_text("No chunks produced. Falling back to direct Groq upload.")
+                return self._transcribe_groq_with_retry(file_path, language=language, quiet=quiet)
 
             transcripts = []
             total = len(chunk_files)
 
             for idx, chunk_file in enumerate(chunk_files, start=1):
-                self._append_system_text(f"Groq chunk {idx}/{total}...")
-                text = self._transcribe_groq_with_retry(chunk_file, language=language)
+                if not quiet:
+                    self._append_system_text(f"Groq chunk {idx}/{total}...")
+                text = self._transcribe_groq_with_retry(chunk_file, language=language, quiet=quiet)
                 if text.strip():
                     transcripts.append(text.strip())
 
@@ -290,7 +321,7 @@ class AppLogic:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
-    def _process_file_mode(self, engine, summary_engine):
+    def _process_file_mode(self):
         file_path = filedialog.askopenfilename(
             title="Select Audio or Video File",
             filetypes=[
@@ -303,151 +334,121 @@ class AppLogic:
             self._append_system_text("No file selected.")
             return
 
-        self._append_system_text(f"Processing file: {file_path}")
-        self._append_system_text(f"Engine: {engine}")
-        self._append_system_text(f"Summary Engine: {summary_engine}")
-        self._append_system_text("Transcribing... please wait.")
+        self._set_processing_state(True)
+        self._append_system_text("Currently processing the file...")
 
         def worker():
             try:
-                text = self._transcribe_file(file_path, engine=engine, language="tl")
-                if not text.strip():
-                    self.view.after(0, self._append_system_text, "No speech detected.")
-                    return
-
-                topic_segments = self._segment_topics(text)
-                all_chunks_data, action_items = self._extract_actions(topic_segments)
-
-                segment_summaries = []
-                for idx, chunk in enumerate(all_chunks_data, start=1):
-                    self.view.after(0, self._append_system_text, f"Summarizing segment {idx}/{len(all_chunks_data)}...")
-                    try:
-                        seg_summary = self._summarize_chunk(chunk["chunk_text"], chunk["actions"], summary_engine)
-                    except Exception as summary_err:
-                        self.view.after(0, self._append_system_text, f"Summary fallback due to: {summary_err}")
-                        seg_summary = self._summarize_with_local_bart(chunk["chunk_text"], chunk["actions"])
-                    chunk["summary"] = seg_summary
-                    segment_summaries.append(seg_summary)
-
-                if segment_summaries:
-                    combined_summary = " ".join(segment_summaries)
-                else:
-                    combined_summary = "No summary generated."
-
-                unique_actions = []
-                seen = set()
-                for item in action_items:
-                    key = item.strip().lower()
-                    if key and key not in seen:
-                        seen.add(key)
-                        unique_actions.append(item.strip())
-
-                pdf_path = self.exporter.generate_pdf(
-                    content=text,
-                    action_items=unique_actions,
-                    summary=combined_summary,
-                    segment_summaries=segment_summaries,
-                    source_file=file_path,
+                result = self._process_file_to_pdf(file_path)
+                self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {result['text']}")
+                self.view.after(0, self._append_system_text, f"PDF generated: {result['pdf_path']}")
+                self.view.after(
+                    0,
+                    self._append_system_text,
+                    (
+                        "Timing: "
+                        f"transcription={self._format_secs(result['timings']['transcription'])}, "
+                        f"summarization={self._format_secs(result['timings']['summarization'])}, "
+                        f"pdf={self._format_secs(result['timings']['pdf'])}, "
+                        f"total={self._format_secs(result['timings']['total'])}"
+                    ),
                 )
-
-                self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {text}")
-                self.view.after(0, self._append_system_text, "Action Items:")
-                if unique_actions:
-                    for item in unique_actions:
-                        self.view.after(0, self._append_system_text, f"- {item}")
-                else:
-                    self.view.after(0, self._append_system_text, "- None identified")
-
-                self.view.after(0, self._append_system_text, "Summary:")
-                self.view.after(0, self._append_system_text, combined_summary)
-                self.view.after(0, self._append_system_text, f"PDF generated: {pdf_path}")
+                print(f"[Debug] File processing timings: {result['timings']}")
             except Exception as e:
-                if engine == "groq":
-                    self.view.after(0, self._append_system_text, f"Groq failed: {e}")
-                    self.view.after(0, self._append_system_text, "Trying local whisper fallback...")
-                    try:
-                        local_text = self._transcribe_file(file_path, engine="local", language="tl")
-                        if local_text.strip():
-                            topic_segments = self._segment_topics(local_text)
-                            all_chunks_data, action_items = self._extract_actions(topic_segments)
-                            segment_summaries = []
-                            for chunk in all_chunks_data:
-                                try:
-                                    segment_summaries.append(self._summarize_chunk(chunk["chunk_text"], chunk["actions"], summary_engine))
-                                except Exception:
-                                    segment_summaries.append(self._summarize_with_local_bart(chunk["chunk_text"], chunk["actions"]))
-
-                            combined_summary = " ".join(segment_summaries) if segment_summaries else "No summary generated."
-                            unique_actions = list(dict.fromkeys([a.strip() for a in action_items if a.strip()]))
-                            pdf_path = self.exporter.generate_pdf(
-                                content=local_text,
-                                action_items=unique_actions,
-                                summary=combined_summary,
-                                segment_summaries=segment_summaries,
-                                source_file=file_path,
-                            )
-                            self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {local_text}")
-                            self.view.after(0, self._append_system_text, f"PDF generated: {pdf_path}")
-                            return
-                    except Exception as local_err:
-                        self.view.after(0, self._append_system_text, f"Local fallback failed: {local_err}")
-
                 self.view.after(0, self._append_system_text, f"File processing failed: {e}")
+            finally:
+                self.view.after(0, self._set_processing_state, False)
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def _process_file_to_pdf(self, file_path):
+        t_start = time.perf_counter()
+
+        t0 = time.perf_counter()
+        text = self._transcribe_file(file_path, engine="groq", language="tl", quiet=True)
+        transcribe_time = time.perf_counter() - t0
+        if not text.strip():
+            raise RuntimeError("No speech detected.")
+
+        topic_segments = self._segment_topics(text)
+        all_chunks_data, action_items = self._extract_actions(topic_segments)
+
+        t1 = time.perf_counter()
+        segment_summaries = []
+        for chunk in all_chunks_data:
+            seg_summary = self._summarize_chunk(chunk["chunk_text"], chunk["actions"], "groq")
+            chunk["summary"] = seg_summary
+            segment_summaries.append(seg_summary)
+        summarize_time = time.perf_counter() - t1
+
+        combined_summary = " ".join(segment_summaries) if segment_summaries else "No summary generated."
+
+        unique_actions = []
+        seen = set()
+        for item in action_items:
+            key = item.strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                unique_actions.append(item.strip())
+
+        t2 = time.perf_counter()
+        pdf_path = self.exporter.generate_pdf(
+            content=text,
+            action_items=unique_actions,
+            summary=combined_summary,
+            segment_summaries=segment_summaries,
+            source_file=file_path,
+        )
+        pdf_time = time.perf_counter() - t2
+
+        total_time = time.perf_counter() - t_start
+        return {
+            "text": text,
+            "pdf_path": pdf_path,
+            "timings": {
+                "transcription": transcribe_time,
+                "summarization": summarize_time,
+                "pdf": pdf_time,
+                "total": total_time,
+            },
+        }
+
+    def process_file_path_for_pdf(self, file_path):
+        """Public wrapper for other UI components (e.g. video manager)."""
+        return self._process_file_to_pdf(file_path)
 
     def _start_training_mode(self):
         self._append_system_text("Train AI Mode is available in Main.py CLI flow.")
         self._append_system_text("Open Main.py and select mode 3 for dataset training.")
 
     def handle_start(self):
-        """Initializes audio stream, timer, and UI for recording."""
+        """Starts direct live recording without prompting for other modes."""
         try:
-            mode, engine, summary_engine = self._prompt_mode_and_engine()
-            if mode is None:
-                return
+            self.current_mode = "1"
+            self.current_engine = "groq"
+            self.current_summary_engine = "groq"
 
-            self.current_mode = mode
-            self.current_engine = engine
-            self.current_summary_engine = summary_engine or "groq"
-
-            if mode == "2":
-                self._process_file_mode(engine, self.current_summary_engine)
-                return
-
-            if mode == "3":
-                self._start_training_mode()
-                return
-
-            # 1. Start the actual AI/Audio engine
-            live_transcription = True
-            live_transcriber = self._groq_live_transcribe if engine == "groq" else None
-            self.audio.start_stream(
-                live_transcription=live_transcription,
-                live_transcriber=live_transcriber,
-            )
+            self.audio.start_stream(live_transcription=True, live_transcriber=self._groq_live_transcribe)
             self.view.is_recording = True
             
-            # 2. UI TRANSITION: Hide placeholder, Show transcript box
+            # 1. UI TRANSITION: Hide placeholder, Show transcript box
             self._ensure_transcript_ready()
             
-            # 3. Update Button and Status
-            self.view.status_indicator.configure(text=f"● RECORDING ({engine.upper()})", text_color="#ff4b4b")
+            # 2. Update Button and Status
+            self.view.status_indicator.configure(text="● RECORDING (GROQ)", text_color="#ff4b4b")
             self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
             
-            # 4. Clear old text and show system message
+            # 3. Clear old text and show system message
             self.view.transcript_box.configure(state="normal") # Unlock for system message
             self.view.transcript_box.delete("0.0", "end")
-            self.view.transcript_box.insert("end", f"[System]: Mode=Live Meeting | Engine={engine}\n")
+            self.view.transcript_box.insert("end", "[System]: Mode=Live Meeting | Engine=groq\n")
             self.view.transcript_box.insert("end", "[System]: Listening...\n")
-            if engine == "groq":
-                self.view.transcript_box.insert("end", "[System]: Live preview now uses Groq; final pass still runs after stop.\n")
             self.view.transcript_box.configure(state="disabled") # Lock back up
             
-            # 5. START THE TIMER LOOP
+            # 4. START THE TIMER LOOP
             self.update_timer_loop(time.time()) 
             
-            # 6. Start visualizer and monitor thread
+            # 5. Start visualizer and monitor thread
             self.view.animate_bars()
             threading.Thread(target=self.transcription_monitor, daemon=True).start()
             self.update_volume_loop()
@@ -502,39 +503,82 @@ class AppLogic:
         self.view.transcript_box.configure(state="disabled")
 
     def handle_stop(self):
-        """Stops the stream, updates UI status, and locks the transcript."""
-        # 1. Stop the audio processing
-        saved_path = self.audio.stop_stream()
+        """Pauses recording, then asks whether to generate PDF or continue recording."""
+        self.audio.stop_stream(save=False)
         self.view.is_recording = False
-        
-        # 2. Reset UI Status and Button
+
+        buffered_audio_exists = bool(getattr(self.audio, "all_audio_data", []))
+        if not buffered_audio_exists:
+            self.view.status_indicator.configure(text="● READY TO RECORD", text_color="#4a4d50")
+            self.view.btn_record.configure(image=self.view.button_icon, command=self.handle_start, border_color="#00f2ff")
+            self.view.timer_label.configure(text="00:00")
+            self._append_system_text("Stopped.")
+            return
+
+        self.view.status_indicator.configure(text="● PAUSED", text_color="#d9a23b")
+        decision = messagebox.askyesnocancel(
+            "Generate PDF",
+            "Recording paused. Generate PDF now?\n\nYes = Generate PDF\nNo = Discard recording\nCancel = Continue recording"
+        )
+
+        if decision is None:
+            self.audio.start_stream(
+                live_transcription=True,
+                live_transcriber=self._groq_live_transcribe,
+                reset_buffer=False,
+            )
+            self.view.is_recording = True
+            self.view.status_indicator.configure(text="● RECORDING (GROQ)", text_color="#ff4b4b")
+            self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
+            self._append_system_text("Resumed recording.")
+            self.update_timer_loop(time.time())
+            self.view.animate_bars()
+            threading.Thread(target=self.transcription_monitor, daemon=True).start()
+            self.update_volume_loop()
+            return
+
         self.view.status_indicator.configure(text="● READY TO RECORD", text_color="#4a4d50")
         self.view.btn_record.configure(image=self.view.button_icon, command=self.handle_start, border_color="#00f2ff")
-        
-        # 3. Insert "Stopped" message safely
-        self.view.transcript_box.configure(state="normal")
-        self.view.transcript_box.insert("end", "[System]: Stopped.\n")
-        self.view.transcript_box.configure(state="disabled")
-
-        # 3b. If using Groq in live mode, transcribe the saved file after stopping.
-        if self.current_mode == "1" and self.current_engine == "groq" and saved_path:
-            self._append_system_text(f"Sending recording to Groq: {saved_path}")
-            self._append_system_text("Transcribing... please wait.")
-
-            def worker():
-                try:
-                    text = self._transcribe_file(saved_path, engine="groq", language="tl")
-                    if not text.strip():
-                        self.view.after(0, self._append_system_text, "No speech detected from Groq.")
-                        return
-                    self.view.after(0, self.update_ui_text, f"[00:00] {text}")
-                except Exception as e:
-                    self.view.after(0, self._append_system_text, f"Groq transcription failed: {e}")
-
-            threading.Thread(target=worker, daemon=True).start()
-        
-        # 4. Reset the timer display
         self.view.timer_label.configure(text="00:00")
+        self._append_system_text("Stopped.")
+
+        if decision is False:
+            self.audio.clear_recording_buffer()
+            self._append_system_text("Recording discarded. No PDF generated.")
+            return
+
+        saved_path = self.audio.save_recorded_audio()
+        self.audio.clear_recording_buffer()
+        if not saved_path:
+            self._append_system_text("Could not save recording for PDF generation.")
+            return
+
+        self._set_processing_state(True, "● PROCESSING RECORDING")
+        self._append_system_text("Currently processing the recording...")
+
+        def worker():
+            try:
+                result = self._process_file_to_pdf(saved_path)
+                self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {result['text']}")
+                self.view.after(0, self._append_system_text, f"PDF generated: {result['pdf_path']}")
+                self.view.after(
+                    0,
+                    self._append_system_text,
+                    (
+                        "Timing: "
+                        f"transcription={self._format_secs(result['timings']['transcription'])}, "
+                        f"summarization={self._format_secs(result['timings']['summarization'])}, "
+                        f"pdf={self._format_secs(result['timings']['pdf'])}, "
+                        f"total={self._format_secs(result['timings']['total'])}"
+                    ),
+                )
+                print(f"[Debug] Recording processing timings: {result['timings']}")
+            except Exception as e:
+                self.view.after(0, self._append_system_text, f"Groq transcription/PDF failed: {e}")
+            finally:
+                self.view.after(0, self._set_processing_state, False)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def handle_export(self, export_type):
         """Handles PDF generation and Media folder access."""
