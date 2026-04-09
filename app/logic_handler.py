@@ -6,6 +6,7 @@ import tempfile
 import subprocess
 import glob
 import pickle
+import wave
 from tkinter import simpledialog, filedialog, messagebox
 
 from faster_whisper import WhisperModel
@@ -131,6 +132,40 @@ class AppLogic:
                 raise RuntimeError(f"Groq summarizer unavailable: {GROQ_SUMMARY_IMPORT_ERROR}")
             return summarize_with_groq(text, actions)
         return self._summarize_with_local_bart(text, actions)
+
+    def _get_media_duration_seconds(self, file_path):
+        ext = os.path.splitext(file_path)[1].lower()
+
+        if ext == ".wav":
+            try:
+                with wave.open(file_path, "rb") as wf:
+                    frames = wf.getnframes()
+                    rate = wf.getframerate()
+                    if rate > 0:
+                        return float(frames) / float(rate)
+            except Exception:
+                pass
+
+        try:
+            probe_cmd = [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                file_path,
+            ]
+            result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=10, check=False)
+            if result.returncode == 0:
+                value = (result.stdout or "").strip()
+                if value:
+                    return float(value)
+        except Exception:
+            pass
+
+        return None
 
     def _ensure_transcript_ready(self):
         self.view.placeholder_text.place_forget()
@@ -363,6 +398,7 @@ class AppLogic:
 
     def _process_file_to_pdf(self, file_path):
         t_start = time.perf_counter()
+        media_duration_seconds = self._get_media_duration_seconds(file_path)
 
         t0 = time.perf_counter()
         text = self._transcribe_file(file_path, engine="groq", language="tl", quiet=True)
@@ -374,14 +410,8 @@ class AppLogic:
         all_chunks_data, action_items = self._extract_actions(topic_segments)
 
         t1 = time.perf_counter()
-        segment_summaries = []
-        for chunk in all_chunks_data:
-            seg_summary = self._summarize_chunk(chunk["chunk_text"], chunk["actions"], "groq")
-            chunk["summary"] = seg_summary
-            segment_summaries.append(seg_summary)
+        combined_summary = self._summarize_chunk(text, action_items, "groq")
         summarize_time = time.perf_counter() - t1
-
-        combined_summary = " ".join(segment_summaries) if segment_summaries else "No summary generated."
 
         unique_actions = []
         seen = set()
@@ -396,7 +426,7 @@ class AppLogic:
             content=text,
             action_items=unique_actions,
             summary=combined_summary,
-            segment_summaries=segment_summaries,
+            duration_seconds=media_duration_seconds,
             source_file=file_path,
         )
         pdf_time = time.perf_counter() - t2
