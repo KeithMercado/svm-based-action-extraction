@@ -174,6 +174,35 @@ class ExportService:
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
 
+    def _sanitize_filename(self, name):
+        cleaned = re.sub(r'[<>:"/\\|?*]', "", (name or "").strip())
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        return cleaned or "Meeting"
+
+    def _build_pdf_path(self, source_file):
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        meeting_prefix = f"Meeting_Minutes_{timestamp}"
+
+        if source_file:
+            base_name = os.path.splitext(os.path.basename(source_file))[0]
+            safe_base = self._sanitize_filename(base_name)
+            file_stem = f"{meeting_prefix}_{safe_base}"
+        else:
+            file_stem = meeting_prefix
+
+        pdf_path = os.path.join(self.output_dir, f"{file_stem}.pdf")
+
+        if not os.path.exists(pdf_path):
+            return pdf_path
+
+        # Keep the requested naming format and avoid overwriting existing exports.
+        counter = 2
+        while True:
+            candidate = os.path.join(self.output_dir, f"{file_stem} ({counter}).pdf")
+            if not os.path.exists(candidate):
+                return candidate
+            counter += 1
+
     def generate_pdf(
         self,
         content,
@@ -204,8 +233,7 @@ class ExportService:
 
         summary_paragraphs = self.formatter.split_summary_into_paragraphs(summary or "")
 
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        pdf_path = os.path.join(self.output_dir, f"Meeting_Minutes_{timestamp}.pdf")
+        pdf_path = self._build_pdf_path(source_file)
 
         styles = getSampleStyleSheet()
         report_styles = ReportStyleFactory.build(styles, colors, ParagraphStyle, TA_JUSTIFY)
