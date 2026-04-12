@@ -12,8 +12,10 @@ class VideoFileManager(ctk.CTkToplevel):
         
         # Window Config
         self.title("Video Files Manager")
-        self.geometry("600x500")
-        self.resizable(True, True)
+        self.geometry("560x500")
+        self.minsize(560, 500)
+        self.maxsize(560, 500)
+        self.resizable(False, False)
         
         # Get base directory
         self.base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -152,11 +154,13 @@ class VideoFileManager(ctk.CTkToplevel):
         info_frame.pack(side="left", fill="both", expand=True, padx=15, pady=10)
         
         # File Name
+        display_name = self._truncate_filename(file_info['name'])
         name_label = ctk.CTkLabel(
             info_frame,
-            text=file_info['name'],
+            text=display_name,
             font=("Inter", 13, "bold"),
-            anchor="w"
+            anchor="w",
+            width=320
         )
         name_label.pack(anchor="w")
         
@@ -330,6 +334,11 @@ class VideoFileManager(ctk.CTkToplevel):
         # start the thread as 'daemon' so it closes if the app is closed
         process_thread = threading.Thread(target=run_process, daemon=True)
         process_thread.start()
+
+    def _truncate_filename(self, file_name, max_chars=45):
+        if len(file_name) <= max_chars:
+            return file_name
+        return file_name[:max_chars - 3] + "..."
 
     def _start_processing_status(self, file_name):
         self._processing_active = True
