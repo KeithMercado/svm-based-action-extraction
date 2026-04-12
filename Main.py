@@ -199,7 +199,20 @@ def process_file(
 
     # --- PHASE 3: ACTION ITEM EXTRACTION ---
     print_phase_header(3, "ACTION ITEM EXTRACTION & MODEL-LLLAMA AUDIT")
-    audit_report = classifier.audit_transcript(raw_text, persist=False)
+    segment_metadata = segmenter.get_segment_metadata()
+    if segment_metadata:
+        print("[System] Using fast segment-level auditing (respects threshold, fewer Llama calls)...")
+        audit_report = classifier.audit_segments_batch(
+            raw_text,
+            segment_metadata,
+            persist=False,
+        )
+    else:
+        audit_report = classifier.audit_transcript(
+            raw_text,
+            persist=False,
+            segment_context=topic_segments,
+        )
     corrections = audit_report["corrections"]
 
     if corrections:
@@ -234,7 +247,7 @@ def main():
     try:
         # Initialize core components
         transcriber = Transcriber()
-        segmenter = Segmenter(chunk_size=5)
+        segmenter = Segmenter(chunk_size=5, max_tokens=1024)
         classifier = ActionItemClassifier()
         trainer = ModelTrainer(classifier)
 

@@ -197,8 +197,34 @@ class ActionItemClassifier:
 
         return has_task_marker or has_owner_marker or has_deadline
 
-    def _model_llama_verdict(self, sentence, transcript_context):
-        """Ask Groq Llama to verify a single sentence using the whole transcript as context."""
+    def _format_segment_context(self, segment_context):
+        """Serialize segment metadata into a compact context block."""
+        if not segment_context:
+            return ""
+
+        if isinstance(segment_context, str):
+            return segment_context.strip()
+
+        lines = []
+        for index, segment in enumerate(segment_context, 1):
+            if isinstance(segment, dict):
+                gist = segment.get("topical_description") or segment.get("gist") or ""
+                raw_text = segment.get("raw_text") or segment.get("text") or ""
+                token_count = segment.get("token_count")
+                prefix = f"Segment {index}"
+                if token_count is not None:
+                    prefix += f" ({token_count} tokens)"
+                entry = f"{prefix}: {gist}".strip()
+                if raw_text:
+                    entry = f"{entry}\n{raw_text[:1000].strip()}".strip()
+                lines.append(entry)
+            else:
+                lines.append(str(segment).strip())
+
+        return "\n\n".join(line for line in lines if line)
+
+    def _model_llama_verdict(self, sentence, transcript_context, segment_context=None):
+        """Ask Groq Llama to verify a single sentence using transcript and segment context."""
         if not self.model_llama_available:
             return {
                 "available": False,
@@ -223,6 +249,7 @@ class ActionItemClassifier:
         system_prompt = (
             "You are Model-Lllama, the transcript-level verifier in an active learning pipeline. "
             "Use the full meeting transcript context, not isolated segments, to classify each Taglish sentence. "
+            "If topical segment gists are provided, use them as supporting context for the conversation topic. "
             "Only label action_item when the sentence is a concrete assigned task, request, follow-up, or deliverable that requires completion to move the project forward. "
             "The sentence should usually include ownership, responsibility, a recipient, or a timeframe/deadline. "
             "Do not label generic action words, verbs, or vague mentions of activity as action_item. "
@@ -231,9 +258,12 @@ class ActionItemClassifier:
             "Use action_item only for specific assigned tasks, concrete follow-ups, and deadline-bound work. "
             "Use information_item for status updates, explanations, facts, and general discussion."
         )
-        user_prompt = (
-            "Full transcript context:\n"
-            f"{transcript_context[:12000]}\n\n"
+        segment_context_block = self._format_segment_context(segment_context)
+        user_prompt = "Full transcript context:\n"
+        user_prompt += f"{transcript_context[:12000]}\n\n"
+        if segment_context_block:
+            user_prompt += f"Segment context:\n{segment_context_block[:6000]}\n\n"
+        user_prompt += (
             "Sentence to verify:\n"
             f"{sentence}\n\n"
             'Return JSON only, for example: {"label":"action_item","confidence":0.93,"reason":"..."}'
@@ -355,7 +385,7 @@ class ActionItemClassifier:
         """Predict whether a sentence is an action item or information."""
         return self.predict_with_confidence(sentence)["label"]
 
-    def audit_sentence(self, sentence, transcript_context, persist=False):
+    def audit_sentence(self, sentence, transcript_context, persist=False, segment_context=None):
         """
         Audit a single sentence against Model-Lllama using the full transcript context.
 
@@ -369,7 +399,11 @@ class ActionItemClassifier:
         label_source = "student"
 
         if needs_audit:
-            model_llama = self._model_llama_verdict(sentence, transcript_context)
+            model_llama = self._model_llama_verdict(
+                sentence,
+                transcript_context,
+                segment_context=segment_context,
+            )
             if model_llama.get("available") and model_llama.get("label") is not None:
                 final_label = self._enforce_action_item_specificity(
                     sentence,
@@ -403,7 +437,7 @@ class ActionItemClassifier:
 
         return result
 
-    def audit_transcript(self, raw_text, persist=False):
+    def audit_transcript(self, raw_text, persist=False, segment_context=None):
         """
         Audit a whole transcription using the full context for every sentence.
 
@@ -413,11 +447,13 @@ class ActionItemClassifier:
         evaluations = []
         corrections = []
         action_items = []
+        segment_context_block = self._format_segment_context(segment_context)
 
         for sentence in sentences:
             result = self.audit_sentence(
                 sentence,
                 transcript_context=raw_text,
+                segment_context=segment_context_block,
                 persist=False,
             )
             evaluations.append(result)
@@ -435,6 +471,161 @@ class ActionItemClassifier:
             )
             if result["model_llama_label"] is not None:
                 print(f"    -> Model-Lllama label: {result['model_llama_label']}")
+
+        return {
+            "transcript": raw_text,
+            "sentences": evaluations,
+            "corrections": corrections,
+            "action_items": action_items,
+        }
+
+    def _audit_segment(self, segment_text, segment_label):
+        """
+        Audit a single segment using Groq Llama.
+
+        This is the fast path: one Llama call per segment instead of one per sentence.
+        """
+        if not self.model_llama_available:
+            return {"label": None, "confidence": None, "reason": "Groq unavailable"}
+
+        self._load_dotenv()
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            return {"label": None, "confidence": None, "reason": "GROQ_API_KEY not found"}
+
+        try:
+            client = Groq(api_key=api_key)
+            system_prompt = (
+                "You are Model-Lllama, a meeting segment classifier. "
+                "Decide whether the segment contains action items that require completion. "
+                "Return strict JSON only with keys label, confidence, and reason."
+            )
+            user_prompt = (
+                f"Segment topic: {segment_label}\n\n"
+                f"Segment text:\n{segment_text[:12000]}\n\n"
+                'Return JSON only, for example: {"label":"action_item","confidence":0.85,"reason":"..."}'
+            )
+
+            result = client.chat.completions.create(
+                model=self.model_llama_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0,
+                max_completion_tokens=100,
+            )
+
+            content = result.choices[0].message.content if result.choices else ""
+            payload = self._extract_json_object(content)
+
+            if payload is None:
+                lowered = content.lower()
+                label = 1 if "action_item" in lowered else 0
+                return {"label": label, "confidence": None, "reason": content.strip()}
+
+            label = self._normalize_label(payload.get("label"))
+            confidence = payload.get("confidence")
+            try:
+                confidence = float(confidence) if confidence is not None else None
+            except Exception:
+                confidence = None
+
+            return {
+                "label": label,
+                "confidence": confidence,
+                "reason": str(payload.get("reason", "")).strip(),
+            }
+        except Exception as e:
+            return {"label": None, "confidence": None, "reason": str(e)}
+
+    def audit_segments_batch(self, raw_text, segment_metadata, persist=False):
+        """
+        Fast segment-level audit that still respects the student confidence threshold.
+
+        One Groq call is made per segment. Sentences are still scored individually by the
+        student model, and Llama only overrides the student when confidence is below threshold.
+        """
+        if not segment_metadata:
+            return self.audit_transcript(raw_text, persist=persist)
+
+        sentences = self._split_sentences(raw_text)
+        sentence_segments = {}
+        segment_labels = {}
+
+        for segment in segment_metadata:
+            segment_id = segment.get("segment_id")
+            segment_text = segment.get("raw_text", "")
+            segment_description = segment.get("topical_description", "")
+            segment_label = segment.get("topic_label", f"Topic {segment_id}")
+
+            segment_audit = self._audit_segment(segment_text, f"{segment_label}: {segment_description}")
+            segment_labels[segment_id] = segment_audit
+
+            for sentence in self._split_sentences(segment_text):
+                sentence_segments[sentence.lower()[:60]] = segment_id
+
+        evaluations = []
+        corrections = []
+        action_items = []
+
+        for sentence in sentences:
+            student = self.predict_with_confidence(sentence)
+            needs_audit = student["confidence"] < self.confidence_threshold
+
+            segment_id = sentence_segments.get(sentence.lower()[:60], 1)
+            segment_audit = segment_labels.get(segment_id, {})
+
+            model_llama = None
+            final_label = student["label"]
+            label_source = "student"
+
+            if needs_audit and segment_audit.get("label") is not None:
+                model_llama = segment_audit
+                final_label = self._enforce_action_item_specificity(
+                    sentence,
+                    segment_audit["label"],
+                    segment_audit.get("reason"),
+                )
+                label_source = "segment_llama"
+
+            correction = None
+            if final_label != student["label"]:
+                correction = {
+                    "text": sentence,
+                    "label": "action_item" if final_label == 1 else "information_item",
+                }
+
+            result = {
+                "sentence": sentence,
+                "student_label": int(student["label"]),
+                "student_confidence": float(student["confidence"]),
+                "student_score": float(student["score"]),
+                "audited": bool(needs_audit),
+                "segment_id": segment_id,
+                "model_llama": model_llama,
+                "model_llama_label": model_llama.get("label") if model_llama else None,
+                "final_label": int(final_label),
+                "label_source": label_source,
+                "correction": correction,
+            }
+            evaluations.append(result)
+
+            if result["final_label"] == 1:
+                action_items.append(sentence)
+
+            if correction is not None:
+                corrections.append(correction)
+
+            status = "[!] Action" if result["final_label"] == 1 else "[ ] Info"
+            print(
+                f"  {status} (student_conf={student['confidence']:.2f}, source={label_source}, segment={segment_id}): {sentence}"
+            )
+            if model_llama is not None:
+                print(f"    -> Segment Llama label: {model_llama.get('label')}")
+
+        if persist and corrections:
+            self.apply_batch_corrections(corrections, persist_csv=True, persist_model=True)
 
         return {
             "transcript": raw_text,

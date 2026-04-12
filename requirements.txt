@@ -5,6 +5,7 @@ scipy
 faster-whisper
 scikit-learn
 transformers
+sentence-transformers
 torch
 pandas
 groq
