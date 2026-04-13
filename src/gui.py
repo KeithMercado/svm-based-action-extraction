@@ -195,3 +195,84 @@ class CompactActionApp(ctk.CTk):
         if self.pdf_manager is None or not self.pdf_manager.winfo_exists():
             self.pdf_manager = PDFFileManager(self)
         self.pdf_manager.focus()
+
+
+    # Message Box when stopping recording, asking if they want to generate a PDF summary
+    def show_recording_prompt(self, on_decision):
+        popup = ctk.CTkToplevel(self)
+        popup.title("Generate PDF")
+        popup.geometry("340x180") # Increased height slightly for better vertical breathing room
+        popup.resizable(False, False)
+        popup.configure(fg_color="#1d2027")
+        popup.attributes("-topmost", True)
+        popup.transient(self)
+        popup.grab_set()
+
+        self.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() // 2) - 170
+        y = self.winfo_rooty() + (self.winfo_height() // 2) - 90
+        popup.geometry(f"340x180+{x}+{y}")
+
+        # --- OUTER CONTAINER ---
+        # expand=True allows this frame to center its children vertically
+        outer = ctk.CTkFrame(popup, fg_color="#1d2027", border_width=0)
+        outer.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # --- CONTENT AREA (Text) ---
+        # We put labels in a sub-frame to keep them grouped in the center
+        content_frame = ctk.CTkFrame(outer, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True)
+
+        title = ctk.CTkLabel(
+            content_frame,
+            text="Recording paused",
+            font=("Inter", 17, "bold"),
+            text_color="#e1e1e1",
+        )
+        title.pack(pady=(0, 5))
+
+        message = ctk.CTkLabel(
+            content_frame,
+            text="Would you like to generate a PDF summary of the\ncurrent transcription?",
+            font=("Inter", 13),
+            justify="center",
+            text_color="#b7bcc4",
+        )
+        message.pack()
+
+        # --- BUTTON AREA ---
+        button_row = ctk.CTkFrame(outer, fg_color="transparent")
+        button_row.pack(side="bottom", fill="x")
+
+        def close_with(choice):
+            try: popup.grab_release()
+            except: pass
+            popup.destroy()
+            on_decision(choice)
+
+        yes_btn = ctk.CTkButton(
+            button_row,
+            text="Generate PDF",
+            width=140, # Adjusted width to fit 340 window with 20px side padding
+            height=34,
+            fg_color="#1f6aa5",
+            hover_color="#1a5280",
+            font=("Inter", 13, "bold"),
+            command=lambda: close_with(True),
+        )
+        yes_btn.pack(side="left", expand=True, padx=(0, 5))
+
+        no_btn = ctk.CTkButton(
+            button_row,
+            text="Discard",
+            width=140,
+            height=34,
+            fg_color="#3a3f46",
+            hover_color="#4a4f57",
+            font=("Inter", 13, "bold"),
+            command=lambda: close_with(False),
+        )
+        no_btn.pack(side="left", expand=True, padx=(5, 0))
+
+        popup.protocol("WM_DELETE_WINDOW", lambda: close_with(None))
+        popup.bind("<Escape>", lambda _event: close_with(None))
