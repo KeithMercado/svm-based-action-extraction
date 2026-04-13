@@ -7,7 +7,7 @@ import subprocess
 import glob
 import pickle
 import wave
-from tkinter import simpledialog, filedialog, messagebox
+from tkinter import simpledialog, filedialog
 
 from faster_whisper import WhisperModel
 import scipy.io.wavfile as wav
@@ -447,6 +447,87 @@ class AppLogic:
         """Public wrapper for other UI components (e.g. video manager)."""
         return self._process_file_to_pdf(file_path)
 
+    # The following methods are for the live recording mode, which can be started directly or resumed after a pause. 
+    # The stop handler will prompt the user to either generate a PDF from the buffered audio or discard it and reset.
+    def _start_live_recording(self):
+        self.audio.start_stream(live_transcription=True, live_transcriber=self._groq_live_transcribe)
+        self.view.is_recording = True
+        self._ensure_transcript_ready()
+        self.view.status_indicator.configure(text="● RECORDING (GROQ)", text_color="#ff4b4b")
+        self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
+        self.view.transcript_box.configure(state="normal")
+        self.view.transcript_box.delete("0.0", "end")
+        self.view.transcript_box.insert("end", "[System]: Mode=Live Meeting | Engine=groq\n")
+        self.view.transcript_box.insert("end", "[System]: Listening...\n")
+        self.view.transcript_box.configure(state="disabled")
+        self.update_timer_loop(time.time())
+        self.view.animate_bars()
+        threading.Thread(target=self.transcription_monitor, daemon=True).start()
+        self.update_volume_loop()
+
+    def _resume_live_recording(self):
+        self.audio.start_stream(
+            live_transcription=True,
+            live_transcriber=self._groq_live_transcribe,
+            reset_buffer=False,
+        )
+        self.view.is_recording = True
+        self.view.status_indicator.configure(text="● RECORDING (GROQ)", text_color="#ff4b4b")
+        self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
+        self._append_system_text("Resumed recording.")
+        self.update_timer_loop(time.time())
+        self.view.animate_bars()
+        threading.Thread(target=self.transcription_monitor, daemon=True).start()
+        self.update_volume_loop()
+
+    def _handle_recording_prompt_decision(self, decision):
+        if decision is None:
+            self._resume_live_recording()
+            return
+
+        self.view.status_indicator.configure(text="● READY TO RECORD", text_color="#4a4d50")
+        self.view.btn_record.configure(image=self.view.button_icon, command=self.handle_start, border_color="#00f2ff")
+        self.view.timer_label.configure(text="00:00")
+        self._append_system_text("Stopped.")
+
+        if decision is False:
+            self.audio.clear_recording_buffer()
+            self._append_system_text("Recording discarded. No PDF generated.")
+            return
+
+        saved_path = self.audio.save_recorded_audio()
+        self.audio.clear_recording_buffer()
+        if not saved_path:
+            self._append_system_text("Could not save recording for PDF generation.")
+            return
+
+        self._set_processing_state(True, "● PROCESSING RECORDING")
+        self._append_system_text("Currently processing the recording...")
+
+        def worker():
+            try:
+                result = self._process_file_to_pdf(saved_path)
+                self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {result['text']}")
+                self.view.after(0, self._append_system_text, f"PDF generated: {result['pdf_path']}")
+                self.view.after(
+                    0,
+                    self._append_system_text,
+                    (
+                        "Timing: "
+                        f"transcription={self._format_secs(result['timings']['transcription'])}, "
+                        f"summarization={self._format_secs(result['timings']['summarization'])}, "
+                        f"pdf={self._format_secs(result['timings']['pdf'])}, "
+                        f"total={self._format_secs(result['timings']['total'])}"
+                    ),
+                )
+                print(f"[Debug] Recording processing timings: {result['timings']}")
+            except Exception as e:
+                self.view.after(0, self._append_system_text, f"Groq transcription/PDF failed: {e}")
+            finally:
+                self.view.after(0, self._set_processing_state, False)
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _start_training_mode(self):
         self._append_system_text("Train AI Mode is available in Main.py CLI flow.")
         self._append_system_text("Open Main.py and select mode 3 for dataset training.")
@@ -546,69 +627,7 @@ class AppLogic:
             return
 
         self.view.status_indicator.configure(text="● PAUSED", text_color="#d9a23b")
-        decision = messagebox.askyesnocancel(
-            "Generate PDF",
-            "Recording paused. Generate PDF now?\n\nYes = Generate PDF\nNo = Discard recording\nCancel = Continue recording"
-        )
-
-        if decision is None:
-            self.audio.start_stream(
-                live_transcription=True,
-                live_transcriber=self._groq_live_transcribe,
-                reset_buffer=False,
-            )
-            self.view.is_recording = True
-            self.view.status_indicator.configure(text="● RECORDING (GROQ)", text_color="#ff4b4b")
-            self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
-            self._append_system_text("Resumed recording.")
-            self.update_timer_loop(time.time())
-            self.view.animate_bars()
-            threading.Thread(target=self.transcription_monitor, daemon=True).start()
-            self.update_volume_loop()
-            return
-
-        self.view.status_indicator.configure(text="● READY TO RECORD", text_color="#4a4d50")
-        self.view.btn_record.configure(image=self.view.button_icon, command=self.handle_start, border_color="#00f2ff")
-        self.view.timer_label.configure(text="00:00")
-        self._append_system_text("Stopped.")
-
-        if decision is False:
-            self.audio.clear_recording_buffer()
-            self._append_system_text("Recording discarded. No PDF generated.")
-            return
-
-        saved_path = self.audio.save_recorded_audio()
-        self.audio.clear_recording_buffer()
-        if not saved_path:
-            self._append_system_text("Could not save recording for PDF generation.")
-            return
-
-        self._set_processing_state(True, "● PROCESSING RECORDING")
-        self._append_system_text("Currently processing the recording...")
-
-        def worker():
-            try:
-                result = self._process_file_to_pdf(saved_path)
-                self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {result['text']}")
-                self.view.after(0, self._append_system_text, f"PDF generated: {result['pdf_path']}")
-                self.view.after(
-                    0,
-                    self._append_system_text,
-                    (
-                        "Timing: "
-                        f"transcription={self._format_secs(result['timings']['transcription'])}, "
-                        f"summarization={self._format_secs(result['timings']['summarization'])}, "
-                        f"pdf={self._format_secs(result['timings']['pdf'])}, "
-                        f"total={self._format_secs(result['timings']['total'])}"
-                    ),
-                )
-                print(f"[Debug] Recording processing timings: {result['timings']}")
-            except Exception as e:
-                self.view.after(0, self._append_system_text, f"Groq transcription/PDF failed: {e}")
-            finally:
-                self.view.after(0, self._set_processing_state, False)
-
-        threading.Thread(target=worker, daemon=True).start()
+        self.view.show_recording_prompt(self._handle_recording_prompt_decision)
 
     def handle_export(self, export_type):
         """Handles PDF generation and Media folder access."""
