@@ -1,11 +1,16 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 
 MODEL_NAME = "whisper-large-v3-turbo"
 
 
-def transcribe_with_groq(audio_file_path: str, language: str = "tl") -> str:
+def transcribe_with_groq(
+    audio_file_path: str,
+    language: str = "tl",
+    initial_prompt: Optional[str] = None,
+) -> str:
     try:
         from dotenv import load_dotenv
     except ModuleNotFoundError as e:
@@ -32,13 +37,19 @@ def transcribe_with_groq(audio_file_path: str, language: str = "tl") -> str:
 
     client = Groq(api_key=api_key)
 
+    request_kwargs = {
+        "model": MODEL_NAME,
+        "language": language,
+        "response_format": "verbose_json",
+        "temperature": 0,
+    }
+    if initial_prompt:
+        request_kwargs["prompt"] = initial_prompt
+
     with file_path.open("rb") as audio_file:
         result = client.audio.transcriptions.create(
-            model=MODEL_NAME,
             file=audio_file,
-            language=language,
-            response_format="verbose_json",
-            temperature=0,
+            **request_kwargs,
         )
 
     text = getattr(result, "text", "")

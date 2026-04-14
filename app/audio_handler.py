@@ -20,6 +20,10 @@ class AudioHandler:
         self.live_language = os.getenv("LIVE_TRANSCRIBE_LANGUAGE", "tl")
         self.live_chunk_count = int(os.getenv("LIVE_CHUNK_COUNT", "12"))
         self.live_overlap_count = int(os.getenv("LIVE_OVERLAP_COUNT", "4"))
+        self.live_vad_energy_threshold = float(os.getenv("LIVE_VAD_ENERGY_THRESHOLD", "0.008"))
+        self.live_silence_seconds = float(os.getenv("LIVE_VAD_SILENCE_SECONDS", "0.7"))
+        self.live_force_flush_seconds = float(os.getenv("LIVE_FORCE_TRANSCRIBE_SECONDS", "10.0"))
+        self.live_min_transcribe_seconds = float(os.getenv("LIVE_MIN_TRANSCRIBE_SECONDS", "1.2"))
         model_size = os.getenv("LIVE_WHISPER_MODEL", "medium")
         self.live_model_name = model_size
 
@@ -73,9 +77,17 @@ class AudioHandler:
             cleaned += "."
         return cleaned
 
+    def _chunk_has_voice(self, audio_chunk):
+        # Lightweight RMS VAD keeps dependencies low and is fast enough for live loops.
+        energy = float(np.sqrt(np.mean(np.square(audio_chunk)))) if audio_chunk.size else 0.0
+        return energy >= self.live_vad_energy_threshold
+
     def _transcription_loop(self):
         print("[Debug]: Transcription Loop Started.")
-        recorded_chunks = [] 
+        recorded_chunks = []
+        buffered_samples = 0
+        silence_samples = 0
+        detected_speech = False
 
         if self.live_transcriber is None and self.model is None:
             self.model = WhisperModel(self.live_model_name, device="cpu", compute_type="int8")
@@ -84,16 +96,39 @@ class AudioHandler:
             try:
                 audio_chunk = self.audio_queue.get(timeout=1)
                 # Calculate the timestamp for this specific chunk relative to start_time
-                elapsed_time = time.time() - self.start_time 
+                elapsed_time = time.time() - self.start_time
                 recorded_chunks.append(audio_chunk)
+                chunk_samples = len(audio_chunk)
+                buffered_samples += chunk_samples
 
-                # Slightly larger chunk + overlap improves readability/accuracy while staying near real-time.
-                if len(recorded_chunks) >= self.live_chunk_count:
+                has_voice = self._chunk_has_voice(audio_chunk)
+                if has_voice:
+                    detected_speech = True
+                    silence_samples = 0
+                else:
+                    silence_samples += chunk_samples
+
+                buffered_seconds = buffered_samples / float(self.sample_rate)
+                silence_seconds = silence_samples / float(self.sample_rate)
+
+                should_flush = False
+                if (
+                    detected_speech
+                    and buffered_seconds >= self.live_min_transcribe_seconds
+                    and silence_seconds >= self.live_silence_seconds
+                ):
+                    should_flush = True
+
+                # Safety override for continuous speech with no pause.
+                if detected_speech and buffered_seconds >= self.live_force_flush_seconds:
+                    should_flush = True
+
+                if should_flush:
                     full_buffer = np.concatenate(recorded_chunks)
-                    if self.live_overlap_count > 0:
-                        recorded_chunks = recorded_chunks[-self.live_overlap_count:]
-                    else:
-                        recorded_chunks = []
+                    recorded_chunks = []
+                    buffered_samples = 0
+                    silence_samples = 0
+                    detected_speech = False
 
                     if self.live_transcriber is not None:
                         external_text = self.live_transcriber(full_buffer, self.sample_rate)
@@ -130,6 +165,42 @@ class AudioHandler:
                                 self.text_queue.put(f"{timestamp} {cleaned}")
             except queue.Empty:
                 continue
+            except Exception as e:
+                self.text_queue.put(f"[System] Live transcription warning: {e}")
+
+        # Flush trailing speech once capture stops.
+        if recorded_chunks and detected_speech:
+            try:
+                full_buffer = np.concatenate(recorded_chunks)
+                elapsed_time = time.time() - self.start_time if self.start_time else 0
+                if self.live_transcriber is not None:
+                    external_text = self.live_transcriber(full_buffer, self.sample_rate)
+                    cleaned = self._normalize_live_text(external_text)
+                    if cleaned and cleaned != self._last_live_text:
+                        self._last_live_text = cleaned
+                        mins, secs = divmod(int(elapsed_time), 60)
+                        timestamp = f"[{mins:02d}:{secs:02d}]"
+                        self.text_queue.put(f"{timestamp} {cleaned}")
+                else:
+                    segments, _ = self.model.transcribe(
+                        full_buffer,
+                        language=self.live_language,
+                        beam_size=5,
+                        best_of=5,
+                        temperature=0,
+                        condition_on_previous_text=True,
+                        vad_filter=True,
+                        no_speech_threshold=0.6,
+                        compression_ratio_threshold=2.4,
+                        log_prob_threshold=-1.0,
+                    )
+                    for segment in segments:
+                        cleaned = self._normalize_live_text(segment.text)
+                        if cleaned and cleaned != self._last_live_text:
+                            self._last_live_text = cleaned
+                            mins, secs = divmod(int(elapsed_time), 60)
+                            timestamp = f"[{mins:02d}:{secs:02d}]"
+                            self.text_queue.put(f"{timestamp} {cleaned}")
             except Exception as e:
                 self.text_queue.put(f"[System] Live transcription warning: {e}")
 
