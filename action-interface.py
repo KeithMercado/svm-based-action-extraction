@@ -22,8 +22,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
-    
-    # DONE : File explorer buttons for both video and PDF managers, with error handling
-    # DONE : Search functionality for both managers, filtering based on file name
-    # TODO : Add icons to the buttons in the file managers for better UX (IF NEEDED ONLY)

@@ -33,6 +33,8 @@ class AudioHandler:
         self.model = None
         self.all_audio_data = [] # List to store every chunk for saving later
         self._last_live_text = ""
+        self.start_time = None
+        self.elapsed_offset_seconds = 0.0
 
     def audio_callback(self, indata, frames, time, status):
         if status:
@@ -45,15 +47,18 @@ class AudioHandler:
             self.audio_queue.put(data_copy.flatten())
             self.all_audio_data.append(data_copy) # Collect data for the final file
 
-    def start_stream(self, live_transcription=True, live_transcriber=None, reset_buffer=True):
+    def start_stream(self, live_transcription=True, live_transcriber=None, reset_buffer=True, continue_timing=False):
         self.is_listening = True
         self.live_transcription_enabled = live_transcription
         self.live_transcriber = live_transcriber
         if reset_buffer:
             self.all_audio_data = []
+            self.elapsed_offset_seconds = 0.0
+        elif not continue_timing:
+            self.elapsed_offset_seconds = 0.0
         self._last_live_text = ""
-        # Record the start time of the session
-        self.start_time = time.time()
+        # Keep timestamps continuous across pause/resume when continue_timing is enabled.
+        self.start_time = time.time() - (self.elapsed_offset_seconds if continue_timing else 0.0)
         self.stream = sd.InputStream(samplerate=self.sample_rate, channels=1, callback=self.audio_callback)
         self.stream.start()
         if self.live_transcription_enabled:
@@ -130,6 +135,8 @@ class AudioHandler:
 
     def stop_stream(self, save=False, clear_buffer=False):
         self.is_listening = False
+        if self.start_time is not None:
+            self.elapsed_offset_seconds = max(0.0, time.time() - self.start_time)
         if self.stream:
             self.stream.stop()
             self.stream.close()
@@ -146,6 +153,8 @@ class AudioHandler:
 
     def clear_recording_buffer(self):
         self.all_audio_data = []
+        self.elapsed_offset_seconds = 0.0
+        self.start_time = None
 
     def save_recorded_audio(self):
         """Saves the collected audio buffer into the output/videos folder."""

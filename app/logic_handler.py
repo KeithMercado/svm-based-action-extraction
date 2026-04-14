@@ -175,7 +175,8 @@ class AppLogic:
     def _append_system_text(self, text):
         self._ensure_transcript_ready()
         self.view.transcript_box.configure(state="normal")
-        self.view.transcript_box.insert("end", f"[System]: {text}\n")
+        self.view.transcript_box.insert("end", "[System]:", "system")
+        self.view.transcript_box.insert("end", f" {text}\n")
         self.view.transcript_box.see("end")
         self.view.transcript_box.configure(state="disabled")
 
@@ -457,10 +458,10 @@ class AppLogic:
         self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
         self.view.transcript_box.configure(state="normal")
         self.view.transcript_box.delete("0.0", "end")
-        self.view.transcript_box.insert("end", "[System]: Mode=Live Meeting | Engine=groq\n")
-        self.view.transcript_box.insert("end", "[System]: Listening...\n")
         self.view.transcript_box.configure(state="disabled")
-        self.update_timer_loop(time.time())
+        self._append_system_text("Live Meeting")
+        self._append_system_text("Listening...")
+        self.update_timer_loop(self.audio.start_time)
         self.view.animate_bars()
         threading.Thread(target=self.transcription_monitor, daemon=True).start()
         self.update_volume_loop()
@@ -470,12 +471,13 @@ class AppLogic:
             live_transcription=True,
             live_transcriber=self._groq_live_transcribe,
             reset_buffer=False,
+            continue_timing=True,
         )
         self.view.is_recording = True
         self.view.status_indicator.configure(text="● RECORDING (GROQ)", text_color="#ff4b4b")
         self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
         self._append_system_text("Resumed recording.")
-        self.update_timer_loop(time.time())
+        self.update_timer_loop(self.audio.start_time)
         self.view.animate_bars()
         threading.Thread(target=self.transcription_monitor, daemon=True).start()
         self.update_volume_loop()
@@ -538,31 +540,7 @@ class AppLogic:
             self.current_mode = "1"
             self.current_engine = "groq"
             self.current_summary_engine = "groq"
-
-            self.audio.start_stream(live_transcription=True, live_transcriber=self._groq_live_transcribe)
-            self.view.is_recording = True
-            
-            # 1. UI TRANSITION: Hide placeholder, Show transcript box
-            self._ensure_transcript_ready()
-            
-            # 2. Update Button and Status
-            self.view.status_indicator.configure(text="● RECORDING (GROQ)", text_color="#ff4b4b")
-            self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
-            
-            # 3. Clear old text and show system message
-            self.view.transcript_box.configure(state="normal") # Unlock for system message
-            self.view.transcript_box.delete("0.0", "end")
-            self.view.transcript_box.insert("end", "[System]: Mode=Live Meeting | Engine=groq\n")
-            self.view.transcript_box.insert("end", "[System]: Listening...\n")
-            self.view.transcript_box.configure(state="disabled") # Lock back up
-            
-            # 4. START THE TIMER LOOP
-            self.update_timer_loop(time.time()) 
-            
-            # 5. Start visualizer and monitor thread
-            self.view.animate_bars()
-            threading.Thread(target=self.transcription_monitor, daemon=True).start()
-            self.update_volume_loop()
+            self._start_live_recording()
             
         except Exception as e:
             # If it fails, show the error in the box
@@ -632,22 +610,16 @@ class AppLogic:
     def handle_export(self, export_type):
         """Handles PDF generation and Media folder access."""
         content = self.view.transcript_box.get("0.0", "end")
-        
-        # Unlock temporarily to show system status in the box
-        self.view.transcript_box.configure(state="normal")
-        
+
         if export_type == "pdf":
-            self.view.transcript_box.insert("end", "[System]: Exporting PDF...\n")
+            self._append_system_text("Exporting PDF...")
             success = self.exporter.generate_pdf(content)
             if success:
-                self.view.transcript_box.insert("end", "[System]: PDF Export Successful.\n")
+                self._append_system_text("PDF Export Successful.")
         
         elif export_type == "video":
-            self.view.transcript_box.insert("end", "[System]: Opening Media Folder...\n")
+            self._append_system_text("Opening Media Folder...")
             # You can add os.startfile("output/videos") here if desired
-            
-        self.view.transcript_box.see("end")
-        self.view.transcript_box.configure(state="disabled")
         
         # Hide the pop-up menu
         self.view.toggle_pop_menu()
