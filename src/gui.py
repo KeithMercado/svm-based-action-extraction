@@ -22,9 +22,22 @@ class CompactActionApp(ctk.CTk):
 
         # Window Config
         self.title("EchoNotes")
-        self.geometry("380x600")
         self.configure(fg_color="#1d2027")
         self.attributes("-topmost", True)
+        
+        # Dimensions
+        min_w, min_h = 380, 600
+        self.minsize(min_w, min_h)
+        self.resizable(True, True)
+
+        # Calculate coordinates for centering the window
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width // 2) - (min_w // 2)
+        y = (screen_height // 2) - (min_h // 2)
+
+        # Set geometry with calculated x and y
+        self.geometry(f"{min_w}x{min_h}+{x}+{y}")       
 
         self._create_widgets(start_cmd, stop_cmd)
 
@@ -73,10 +86,16 @@ class CompactActionApp(ctk.CTk):
             text_color="#e1e1e1", 
             wrap="word", 
             spacing3=5,
-            state="disabled" # Starts uneditable
+            activate_scrollbars=False, 
+            state="disabled"
         )
+
         # Cyan tag for timestamps
         self.transcript_box.tag_config("timestamp", foreground="#00f2ff")
+        # System messages are shown in red
+        self.transcript_box.tag_config("system", foreground="#ff5f5f")
+        # mouse wheel scrolling for transcript box
+        self.transcript_box.bind("<MouseWheel>", lambda event: self.transcript_box.yview_scroll(int(-1*(event.delta/120)), "units"))
 
         # --- 3. VISUALIZER & SEPARATORS ---
         # LINE 2: Above Visualizer
@@ -201,8 +220,11 @@ class CompactActionApp(ctk.CTk):
     def show_recording_prompt(self, on_decision):
         popup = ctk.CTkToplevel(self)
         popup.title("Generate PDF")
-        popup.geometry("340x180") # Increased height slightly for better vertical breathing room
-        popup.resizable(False, False)
+        min_w, min_h = 340, 150
+        popup.geometry(f"{min_w}x{min_h}")
+        popup.minsize(min_w, min_h)
+        popup.wm_minsize(min_w, min_h)
+        popup.resizable(True, True)
         popup.configure(fg_color="#1d2027")
         popup.attributes("-topmost", True)
         popup.transient(self)
@@ -211,7 +233,7 @@ class CompactActionApp(ctk.CTk):
         self.update_idletasks()
         x = self.winfo_rootx() + (self.winfo_width() // 2) - 170
         y = self.winfo_rooty() + (self.winfo_height() // 2) - 90
-        popup.geometry(f"340x180+{x}+{y}")
+        popup.geometry(f"{min_w}x{min_h}+{x}+{y}")
 
         # --- OUTER CONTAINER ---
         # expand=True allows this frame to center its children vertically
