@@ -54,6 +54,9 @@ class AppLogic:
         self.vectorizer = HashingVectorizer(n_features=2**16, ngram_range=(1, 3), alternate_sign=False)
         self.classifier = self._load_or_init_classifier()
         self.local_bart = None
+        self.live_transcribe_prompt = (
+            "This is a Taglish meeting transcript involving technical tasks and action items."
+        )
 
     def _format_secs(self, seconds):
         return f"{seconds:.1f}s"
@@ -281,11 +284,25 @@ class AppLogic:
         except Exception:
             return False
 
-    def _transcribe_groq_with_retry(self, file_path, language="tl", retries=3, quiet=False):
+    def _transcribe_groq_with_retry(
+        self,
+        file_path,
+        language="tl",
+        retries=3,
+        quiet=False,
+        initial_prompt=None,
+    ):
+        if transcribe_with_groq is None:
+            raise RuntimeError(f"Groq integration unavailable: {GROQ_IMPORT_ERROR}")
+
         last_error = None
         for attempt in range(1, retries + 1):
             try:
-                return transcribe_with_groq(file_path, language=language)
+                return transcribe_with_groq(
+                    file_path,
+                    language=language,
+                    initial_prompt=initial_prompt,
+                )
             except Exception as e:
                 last_error = e
                 if attempt < retries and not quiet:
@@ -344,15 +361,18 @@ class AppLogic:
             return " ".join(transcripts)
 
     def _groq_live_transcribe(self, audio_buffer, sample_rate):
-        if transcribe_with_groq is None:
-            raise RuntimeError(f"Groq integration unavailable: {GROQ_IMPORT_ERROR}")
-
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             temp_path = tmp.name
 
         try:
             wav.write(temp_path, sample_rate, audio_buffer)
-            return transcribe_with_groq(temp_path, language="tl")
+            return self._transcribe_groq_with_retry(
+                temp_path,
+                language="tl",
+                retries=3,
+                quiet=True,
+                initial_prompt=self.live_transcribe_prompt,
+            )
         finally:
             if os.path.exists(temp_path):
                 os.remove(temp_path)

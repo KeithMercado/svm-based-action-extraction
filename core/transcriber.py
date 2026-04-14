@@ -5,7 +5,9 @@ Handles both Groq and Local Whisper transcriptions.
 
 import os
 import time
+import tempfile
 from faster_whisper import WhisperModel
+import scipy.io.wavfile as wav
 
 try:
     from integrations.groq.transcribe import transcribe_with_groq
@@ -30,7 +32,13 @@ class Transcriber:
             self.local_model = WhisperModel(model_size, device="cpu", compute_type="int8")
         return self.local_model
 
-    def transcribe_with_groq_retries(self, file_path, language="tl", retries=3):
+    def transcribe_with_groq_retries(
+        self,
+        file_path,
+        language="tl",
+        retries=3,
+        initial_prompt=None,
+    ):
         """Transcribe with Groq API, with automatic retries on failure."""
         if not GROQ_AVAILABLE:
             raise RuntimeError(
@@ -40,7 +48,11 @@ class Transcriber:
         last_error = None
         for attempt in range(1, retries + 1):
             try:
-                return transcribe_with_groq(file_path, language=language)
+                return transcribe_with_groq(
+                    file_path,
+                    language=language,
+                    initial_prompt=initial_prompt,
+                )
             except Exception as e:
                 last_error = e
                 if attempt < retries:
@@ -121,3 +133,27 @@ class Transcriber:
         return self.transcribe_file(
             audio_file_path, engine=engine, language=language
         )
+
+    def transcribe_live_buffer_groq(
+        self,
+        audio_buffer,
+        sample_rate,
+        language="tl",
+        retries=3,
+        initial_prompt="This is a Taglish meeting transcript involving technical tasks and action items.",
+    ):
+        """Transcribe in-memory live audio using Groq without chunked file logic."""
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            temp_path = tmp.name
+
+        try:
+            wav.write(temp_path, sample_rate, audio_buffer)
+            return self.transcribe_with_groq_retries(
+                temp_path,
+                language=language,
+                retries=retries,
+                initial_prompt=initial_prompt,
+            )
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
