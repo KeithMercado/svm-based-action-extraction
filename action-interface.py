@@ -5,13 +5,15 @@ from app.logic_handler import AppLogic
 def main():
     audio = AudioHandler()
     # a placeholder view with no commands yet, since the Logic will fill those in after it’s created
-    view = CompactActionApp(start_cmd=None, stop_cmd=None, export_cmd=None)
+    view = CompactActionApp(start_cmd=None, stop_cmd=None, export_cmd=None, mic_toggle_cmd=None)
     
     logic = AppLogic(view, audio)
     view.logic = logic
     
     # Final wiring
     view.btn_record.configure(command=logic.handle_start)
+    view.btn_mic_toggle.configure(command=logic.handle_toggle_mic)
+    view.update_mic_button(audio.mic_is_muted)
     
     # These match the "Pop-up" buttons we created earlier
     view.btn_clapper.configure(command=view.open_video_manager)

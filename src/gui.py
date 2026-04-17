@@ -7,7 +7,7 @@ from src.components.video_file_manager import VideoFileManager
 from src.components.pdf_file_manager import PDFFileManager
 
 class CompactActionApp(ctk.CTk):
-    def __init__(self, start_cmd, stop_cmd, export_cmd):
+    def __init__(self, start_cmd, stop_cmd, export_cmd, mic_toggle_cmd=None):
         super().__init__()
         
         # State & Functionality
@@ -39,12 +39,31 @@ class CompactActionApp(ctk.CTk):
         # Set geometry with calculated x and y
         self.geometry(f"{min_w}x{min_h}+{x}+{y}")       
 
-        self._create_widgets(start_cmd, stop_cmd)
+        self._create_widgets(start_cmd, stop_cmd, mic_toggle_cmd)
 
-    def _create_widgets(self, start_cmd, stop_cmd):
+    def _create_widgets(self, start_cmd, stop_cmd, mic_toggle_cmd):
         # --- 1. HEADER (Status & Timer) ---
         self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.header_frame.pack(fill="x", padx=20, pady=(15, 5))
+
+        self.folder_icon_small = ctk.CTkImage(
+            Image.open(os.path.join(self.assets_dir, "folder.png")),
+            size=(15, 15),
+        )
+        self.btn_menu_small = ctk.CTkButton(
+            self.header_frame,
+            text="",
+            image=self.folder_icon_small,
+            width=30,
+            height=30,
+            corner_radius=15,
+            fg_color="#23272f",
+            hover_color="#323538",
+            border_color="#23272f",
+            border_width=1,
+            command=self.toggle_pop_menu,
+        )
+        self.btn_menu_small.pack(side="left", padx=(0, 8))
 
         self.status_indicator = ctk.CTkLabel(
             self.header_frame, 
@@ -133,17 +152,30 @@ class CompactActionApp(ctk.CTk):
         # Icons (Renamed to match logic handler's expectations or vice versa)
         self.button_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "button.png")), size=(25, 25))
         self.stop_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "stop.png")), size=(25, 25))
-        self.folder_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "folder.png")), size=(22, 22))
+        self.mic_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "microphone.png")), size=(24, 24))
+        self.muted_mic_icon = ctk.CTkImage(Image.open(os.path.join(self.assets_dir, "muted-mic.png")), size=(24, 24))
 
         self.btn_record = ctk.CTkButton(self.controls, text="", image=self.button_icon, width=60, height=60, 
                                         corner_radius=30, fg_color="#1e2d2e", border_color="#00f2ff", 
                                         border_width=2, hover_color="#2a3f40", command=start_cmd)
-        self.btn_record.pack(side="left", expand=True, padx=(40, 10))
+        self.btn_record.pack(side="left", expand=True, padx=(50, 12))
 
-        self.btn_folder_main = ctk.CTkButton(self.controls, text="", image=self.folder_icon, width=50, height=50, 
-                                            corner_radius=25, fg_color="#23272f", hover_color="#323538", 
-                                            command=self.toggle_pop_menu)
-        self.btn_folder_main.pack(side="left", expand=True, padx=(10, 40))
+        self.btn_mic_toggle = ctk.CTkButton(
+            self.controls,
+            text="",
+            image=self.mic_icon,
+            width=60,
+            height=60,
+            corner_radius=30,
+            fg_color="#1e5f3d",
+            hover_color="#25774d",
+            border_color="#4fd190",
+            border_width=2,
+            command=mic_toggle_cmd,
+        )
+        self.btn_mic_toggle.pack(side="left", expand=True, padx=(12, 50))
+
+        self.update_mic_button(False)
 
         # --- 5. POP-UP MENU ---
         self.pop_menu = ctk.CTkFrame(self, fg_color="#252729", corner_radius=15, border_width=1, border_color="#323538")
@@ -169,8 +201,28 @@ class CompactActionApp(ctk.CTk):
         self.btn_pdf.pack(side="left", padx=10, pady=5)
 
     def toggle_pop_menu(self):
-        if self.pop_menu.winfo_manager(): self.pop_menu.place_forget()
-        else: self.pop_menu.place(relx=0.5, rely=0.75, anchor="center")
+        if self.pop_menu.winfo_manager():
+            self.pop_menu.place_forget()
+        else:
+            x = self.btn_menu_small.winfo_rootx() - self.winfo_rootx()
+            y = self.btn_menu_small.winfo_rooty() - self.winfo_rooty() + self.btn_menu_small.winfo_height() + 6
+            self.pop_menu.place(x=x, y=y)
+
+    def update_mic_button(self, is_muted):
+        if is_muted:
+            self.btn_mic_toggle.configure(
+                image=self.muted_mic_icon,
+                fg_color="#7a2323",
+                hover_color="#8f2b2b",
+                border_color="#ff8f8f",
+            )
+        else:
+            self.btn_mic_toggle.configure(
+                image=self.mic_icon,
+                fg_color="#1e5f3d",
+                hover_color="#25774d",
+                border_color="#4fd190",
+            )
 
     def animate_bars(self):
         """Updated neon cyan visualizer animation with safety checks."""
