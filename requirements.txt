@@ -1,6 +1,6 @@
 spacy
 numpy
-sounddevice
+pyaudiowpatch
 scipy
 faster-whisper
 scikit-learn
