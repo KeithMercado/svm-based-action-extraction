@@ -1,0 +1,601 @@
+text,label
+"[insurance] May idea lang about possible redesign, not yet committed. after lunch",0
+[banking] Just a reminder that holidays affect shipping windows. ASAP,0
+[retail] Maki-coordinate sa warehouse para ma-release ang shipment by tomorrow before lunch. after lunch,1
+[insurance] The dashboard latency is currently around 220ms average. now na,0
+"[logistics] Quinn, send meeting minutes with owners by tomorrow 10 AM., thanks",1
+[logistics] Context only: this metric includes trial accounts.,0
+"[telecom] For context, our churn peaked during the rainy season. after lunch",0
+[manufacturing] Eun will collect signatures from all leads by Tuesday afternoon. now na,1
+[retail] The issue appears related to DNS propagation delays.,0
+"[banking] Please archive old logs and free disk space by before 5 PM., thanks",1
+[energy] Please call the supplier and confirm delivery for on April 30. uhm,1
+[ecommerce] Update the risk register and tag the blockers by Tuesday afternoon. ASAP,1
+[education] Pakiprioritize yung outage RCA and circulate by Monday. now na,1
+[govtech] Meeting note: multiple teams requested clarification. ASAP,0
+[retail] The update was descriptive and did not include an assignment. now na,0
+[telecom] Nasa planning stage pa lahat ng sinabi kanina. ASAP,0
+[govtech] Prepare the monthly KPI summary and submit by before 5 PM. (urgent),1
+[govtech] Please finalize the vendor contract draft by Wednesday EOD. now na,1
+[logistics] Just a reminder that holidays affect shipping windows. please,0
+[energy] Context: vendor response time improved recently. now na,0
+[retail] Please archive old logs and free disk space by Tuesday afternoon. (urgent),1
+[telecom] Pakicheck kung na-sign na yung MOA by within 24 hours. after lunch,1
+"[insurance] FYI only, the docs were viewed 420 times. uhm",0
+[insurance] Run regression tests and attach evidence by on April 30. please,1
+"[energy] FYI, the supplier changed their office address last quarter.",0
+"[ecommerce] There was mention of a pilot, but no owner named. now na",0
+"[fintech] Please escalate unresolved cases to L2 before Monday., thanks",1
+"[banking] Kian, paki-approve yung purchase request today next week. ASAP",1
+[logistics] The sandbox outage happened twice last week.,0
+[healthcare] Wala pang final owner for the rollout topic. uhm,0
+[insurance] Reconcile the ledger mismatch and update by today EOD.,1
+[healthcare] Please backfill missing translations before today EOD. uhm,1
+"[fintech] Please archive old logs and free disk space by this weekend., thanks",1
+[govtech] Please compile customer complaints and triage them by this Friday. ASAP,1
+"[ecommerce] Finalize the migration checklist and share by tomorrow before lunch., thanks",1
+[healthcare] A quick recap was shared at the end of the call. (urgent),0
+[healthcare] Update the risk register and tag the blockers by today EOD.,1
+[govtech] Rina to prepare the board deck before this Friday. please,1
+[agritech] Paki-schedule ng calibration call sa ops this tomorrow 10 AM. please,1
+"[govtech] Nabanggit lang na may audit next month, wala pang action owner. now na",0
+[telecom] This remark is for situational awareness only. please,0
+[retail] Please refactor the parser and open a PR by tomorrow before lunch. please,1
+[healthcare] Meeting note: multiple teams requested clarification. please,0
+"[retail] Customer asked questions, but no commitments yet. ASAP",0
+"[manufacturing] Omar, send meeting minutes with owners by tomorrow before lunch. uhm",1
+"[manufacturing] General update lang, no deadline was provided. ASAP",0
+[education] Background detail: partner uses a different timezone. ASAP,0
+[education] May mention ng follow-up pero walang assigned person. now na,0
+[retail] No owner or due date was confirmed in this part. uhm,0
+[banking] May proposal pero hindi pa approved ng steering group. (urgent),0
+[fintech] Generate the trial balance and send it to finance within 24 hours.,1
+"[banking] This section is informational and non-actionable., thanks",0
+[telecom] Pakiclose yung duplicate invoices bago mag by end of shift. (urgent),1
+[retail] Maki-coordinate sa warehouse para ma-release ang shipment by by end of shift.,1
+[govtech] The legal team shared background notes about prior disputes. (urgent),0
+"[insurance] FYI, customer sentiment improved compared to last month. uhm",0
+[education] The transcript mentions API keys but no assignment was made. ASAP,0
+[logistics] The update was descriptive and did not include an assignment. please,0
+[logistics] The branch reported intermittent internet this morning. (urgent),0
+"[energy] Eun, paki-approve yung purchase request today Tuesday afternoon. (urgent)",1
+[telecom] Nasa planning stage pa lahat ng sinabi kanina. after lunch,0
+[retail] The transcript mentions API keys but no assignment was made. now na,0
+[education] I-announce mo sa channel ang maintenance window tomorrow before lunch.,1
+[retail] Please revise the SLA terms and resend by next week. (urgent),1
+"[govtech] May mention ng follow-up pero walang assigned person., thanks",0
+[banking] Paki-schedule ng calibration call sa ops this within 24 hours. (urgent),1
+[logistics] The board asked for visibility into risks. please,0
+[banking] Kian to submit calibration notes by on April 30. uhm,1
+[healthcare] The team reviewed examples from other countries. please,0
+[hospitality] Please call the supplier and confirm delivery for this Friday. please,1
+[govtech] Route this ticket to infra and request ETA by this Friday. (urgent),1
+"[education] The team reviewed examples from other countries., thanks",0
+"[fintech] General update lang, no deadline was provided. ASAP",0
+[govtech] Mika to confirm attendee list for within 24 hours. (urgent),1
+[ecommerce] Just noting that legal prefers plain-language terms. (urgent),0
+[retail] Prepare the compliance checklist and share it by within 24 hours. now na,1
+[govtech] Please set up the interview panel for within 24 hours. after lunch,1
+[energy] Can you deploy the hotfix to staging by tomorrow 10 AM? now na,1
+"[insurance] Generate the trial balance and send it to finance tomorrow before lunch., thanks",1
+"[govtech] Quinn, send meeting minutes with owners by Wednesday EOD. (urgent)",1
+[telecom] I-endorse mo kay legal yung revised clause mamayang this weekend. now na,1
+[retail] Wala pang final owner for the rollout topic. (urgent),0
+[logistics] Coordinate a pilot run and report outcomes by by end of shift. after lunch,1
+[healthcare] Status update only: the service is stable now.,0
+[retail] The model score drifted by about 3 percent. uhm,0
+[hospitality] The legal team shared background notes about prior disputes. uhm,0
+[ecommerce] A quick recap was shared at the end of the call.,0
+[manufacturing] Generate the trial balance and send it to finance on April 30. uhm,1
+[manufacturing] Jules to confirm attendee list for before 5 PM.,1
+[manufacturing] The model score drifted by about 3 percent. ASAP,0
+[logistics] Rina will present the root-cause analysis on this Friday. after lunch,1
+[education] The committee discussed several options without final decisions. uhm,0
+[hospitality] Route this ticket to infra and request ETA by tomorrow 10 AM. now na,1
+[logistics] I-announce mo sa channel ang maintenance window tomorrow before lunch.,1
+[govtech] Please escalate unresolved cases to L2 before tomorrow before lunch. please,1
+"[hospitality] General update lang, no deadline was provided.",0
+[govtech] Observed lang na mataas yung retries after 6 PM.,0
+"[fintech] Customer asked questions, but no commitments yet. (urgent)",0
+[ecommerce] Please verify the API deprecation list before tomorrow before lunch. ASAP,1
+"[banking] Please set up the interview panel for before 5 PM., thanks",1
+[logistics] Generate the trial balance and send it to finance Tuesday afternoon. uhm,1
+[manufacturing] Nasa planning stage pa lahat ng sinabi kanina. after lunch,0
+[fintech] Meeting note: multiple teams requested clarification. after lunch,0
+[logistics] Background: this policy came from regional compliance. uhm,0
+"[govtech] The update was descriptive and did not include an assignment., thanks",0
+[retail] Farah to submit calibration notes by tomorrow before lunch. after lunch,1
+[govtech] No owner or due date was confirmed in this part. (urgent),0
+[ecommerce] The legal team shared background notes about prior disputes. now na,0
+[healthcare] No concrete commitment was captured in that segment. ASAP,0
+[manufacturing] The experiment used a very small sample size.,0
+[energy] Nasa planning stage pa lahat ng sinabi kanina. please,0
+[education] The branch reported intermittent internet this morning. (urgent),0
+[govtech] Observed lang na mataas yung retries after 6 PM. please,0
+[hospitality] Please schedule user acceptance testing by by end of shift. (urgent),1
+[energy] May proposal pero hindi pa approved ng steering group. now na,0
+[fintech] The experiment used a very small sample size. after lunch,0
+"[insurance] FYI, transcript quality dropped when mic was far away. ASAP",0
+[education] Paki-prepare ng demo script para sa client by this Friday.,1
+"[agritech] Please schedule user acceptance testing by before 5 PM., thanks",1
+"[insurance] The legal team shared background notes about prior disputes., thanks",0
+"[banking] FYI, the supplier changed their office address last quarter. after lunch",0
+"[govtech] Ihanda mo yung remediation memo and send by before 5 PM., thanks",1
+"[logistics] Farah, paki-approve yung purchase request today within 24 hours. now na",1
+[insurance] Please verify the API deprecation list before tomorrow before lunch.,1
+"[banking] FYI, the supplier changed their office address last quarter.",0
+"[telecom] FYI, the supplier changed their office address last quarter. (urgent)",0
+[hospitality] Maki-coordinate sa warehouse para ma-release ang shipment by tomorrow 10 AM. (urgent),1
+[telecom] Generate the trial balance and send it to finance this Friday. now na,1
+[energy] Paki-schedule ng calibration call sa ops this next week. ASAP,1
+[ecommerce] Observed lang na mataas yung retries after 6 PM. (urgent),0
+[ecommerce] Can you deploy the hotfix to staging by tomorrow before lunch? after lunch,1
+[education] The issue appears related to DNS propagation delays. ASAP,0
+"[education] Ihanda mo yung remediation memo and send by before 5 PM., thanks",1
+"[telecom] May concern about tone of the announcement, discussion pa. now na",0
+[ecommerce] This remark is for situational awareness only. ASAP,0
+[banking] The update was descriptive and did not include an assignment. please,0
+[logistics] May proposal pero hindi pa approved ng steering group. please,0
+[hospitality] Please patch CVE findings before Wednesday EOD. after lunch,1
+[ecommerce] Context only: this metric includes trial accounts.,0
+"[logistics] Gio to confirm attendee list for within 24 hours., thanks",1
+[ecommerce] Pakiclose yung duplicate invoices bago mag today EOD.,1
+[agritech] Pakiclose yung duplicate invoices bago mag tomorrow before lunch. uhm,1
+[govtech] Pakisend yung incident timeline sa security team tomorrow 10 AM. ASAP,1
+[logistics] Pakiscan yung branch forms and upload by before 5 PM. uhm,1
+"[energy] For context, our churn peaked during the rainy season. uhm",0
+[insurance] Zane should validate bilingual labels by tomorrow 10 AM. now na,1
+"[telecom] Carlo, i-follow up mo yung API key rotation tomorrow 10 AM.",1
+[logistics] May proposal pero hindi pa approved ng steering group. uhm,0
+[fintech] The dashboard latency is currently around 220ms average. ASAP,0
+[ecommerce] Please escalate unresolved cases to L2 before today EOD. uhm,1
+[fintech] Please archive old logs and free disk space by Monday. (urgent),1
+[education] The dashboard latency is currently around 220ms average. (urgent),0
+"[govtech] FYI, customer sentiment improved compared to last month. now na",0
+[fintech] Meeting note: multiple teams requested clarification.,0
+[manufacturing] Just a reminder that holidays affect shipping windows. please,0
+[agritech] The update was descriptive and did not include an assignment. after lunch,0
+[ecommerce] Farah will collect signatures from all leads by tomorrow 10 AM. now na,1
+[energy] Pakisend yung incident timeline sa security team next week. now na,1
+[energy] Wala pang final owner for the rollout topic.,0
+[energy] Just sharing that QA coverage reached 81 percent. uhm,0
+[energy] Assign someone to document rollback steps by this Friday. ASAP,1
+[education] May proposal pero hindi pa approved ng steering group. please,0
+"[govtech] Pinresent lang yung findings, walang task handoff.",0
+[manufacturing] No concrete commitment was captured in that segment. ASAP,0
+[telecom] Please revise the SLA terms and resend by before 5 PM. please,1
+[fintech] Reconcile the ledger mismatch and update by before 5 PM. now na,1
+[telecom] Status update only: the service is stable now. ASAP,0
+[retail] Please escalate unresolved cases to L2 before before 5 PM. ASAP,1
+[insurance] Coordinate a pilot run and report outcomes by tomorrow before lunch. please,1
+[banking] General discussion about priorities continued. ASAP,0
+[logistics] Prepare the compliance checklist and share it by today EOD.,1
+"[telecom] Nabanggit lang na may audit next month, wala pang action owner. uhm",0
+[banking] Ihanda mo yung remediation memo and send by Wednesday EOD. after lunch,1
+"[fintech] Napag-usapan ang budget cap pero wala pang next step., thanks",0
+"[agritech] Bianca to prepare the board deck before on April 30., thanks",1
+[telecom] Please set up the interview panel for this weekend. uhm,1
+[insurance] Background: this policy came from regional compliance. uhm,0
+[telecom] Please schedule user acceptance testing by Monday. after lunch,1
+[education] Context only: this metric includes trial accounts. now na,0
+[hospitality] Please compile customer complaints and triage them by before 5 PM. please,1
+[manufacturing] Can you clean the dataset and remove PII by this weekend? after lunch,1
+"[agritech] Eun, send meeting minutes with owners by Wednesday EOD. uhm",1
+[energy] Pinag-uusapan pa lang yung migration approach. now na,0
+[manufacturing] Please set up the interview panel for next week. (urgent),1
+[energy] The legal team shared background notes about prior disputes. ASAP,0
+[retail] May mention ng follow-up pero walang assigned person. now na,0
+[energy] Status update only: the service is stable now. after lunch,0
+[healthcare] Assign someone to document rollback steps by this Friday. after lunch,1
+"[energy] General discussion about priorities continued., thanks",0
+[ecommerce] Coordinate with HR to release onboarding docs tomorrow before lunch. (urgent),1
+[energy] Pinag-uusapan pa lang yung migration approach. uhm,0
+[education] Prepare the compliance checklist and share it by within 24 hours. please,1
+[ecommerce] Prepare the compliance checklist and share it by tomorrow 10 AM. after lunch,1
+[banking] Background detail: partner uses a different timezone. ASAP,0
+[energy] Paki-update ang firewall rules then report back by this weekend. after lunch,1
+[manufacturing] Can you deploy the hotfix to staging by tomorrow 10 AM? uhm,1
+[hospitality] Just a reminder that holidays affect shipping windows. after lunch,0
+[healthcare] The issue appears related to DNS propagation delays. now na,0
+[education] Create user training slides and rehearse by before 5 PM. (urgent),1
+[energy] Please draft three mitigation options by today EOD. ASAP,1
+[retail] I-endorse mo kay legal yung revised clause mamayang next week. please,1
+[telecom] The sandbox outage happened twice last week. after lunch,0
+[logistics] Please refactor the parser and open a PR by next week.,1
+[insurance] Can you deploy the hotfix to staging by Monday? after lunch,1
+"[insurance] Pinresent lang yung findings, walang task handoff. after lunch",0
+[energy] The pilot timeline is tentative and may shift. after lunch,0
+[logistics] Meeting note: multiple teams requested clarification. uhm,0
+[education] Coordinate a pilot run and report outcomes by on April 30. uhm,1
+[retail] Pakiprioritize yung outage RCA and circulate by tomorrow before lunch. uhm,1
+"[manufacturing] Please patch CVE findings before by end of shift., thanks",1
+[manufacturing] Background: this policy came from regional compliance. after lunch,0
+[manufacturing] The legal team shared background notes about prior disputes.,0
+[hospitality] Background: this policy came from regional compliance. ASAP,0
+"[manufacturing] May concern about tone of the announcement, discussion pa. uhm",0
+[banking] Create a backup snapshot and test restore by on April 30. ASAP,1
+[banking] Just a reminder that holidays affect shipping windows. please,0
+"[logistics] The committee discussed several options without final decisions., thanks",0
+[banking] The team reviewed examples from other countries. now na,0
+[banking] Observed lang na mataas yung retries after 6 PM. uhm,0
+[banking] Vince to prepare the board deck before this weekend. uhm,1
+"[energy] For awareness, this account has premium support. (urgent)",0
+[ecommerce] Please patch CVE findings before tomorrow before lunch. now na,1
+"[energy] Please draft three mitigation options by Monday., thanks",1
+[energy] Ihanda mo yung remediation memo and send by tomorrow 10 AM. after lunch,1
+[insurance] The branch reported intermittent internet this morning. after lunch,0
+"[fintech] Noel, i-follow up mo yung API key rotation this weekend. please",1
+"[manufacturing] Paolo, send meeting minutes with owners by by end of shift. (urgent)",1
+[healthcare] The transcript mentions API keys but no assignment was made. ASAP,0
+[energy] Ihanda mo yung remediation memo and send by next week. ASAP,1
+[logistics] General discussion about priorities continued. after lunch,0
+[manufacturing] The sandbox outage happened twice last week. (urgent),0
+"[logistics] FYI, the supplier changed their office address last quarter. now na",0
+[fintech] Please escalate unresolved cases to L2 before on April 30. after lunch,1
+[ecommerce] I-endorse mo kay legal yung revised clause mamayang Wednesday EOD. please,1
+[retail] Can you clean the dataset and remove PII by tomorrow 10 AM? please,1
+[banking] Create a backup snapshot and test restore by by end of shift. (urgent),1
+[retail] Pinag-uusapan pa lang yung migration approach. (urgent),0
+"[logistics] Omar, send meeting minutes with owners by this weekend. now na",1
+"[energy] Paki-update ang firewall rules then report back by within 24 hours., thanks",1
+[hospitality] Please call the supplier and confirm delivery for by end of shift. (urgent),1
+"[govtech] Background detail: partner uses a different timezone., thanks",0
+[logistics] Yuri needs to coordinate with procurement this tomorrow before lunch. please,1
+[fintech] Please finalize the vendor contract draft by Monday.,1
+"[retail] The team reviewed examples from other countries., thanks",0
+[telecom] Pakiclose yung duplicate invoices bago mag tomorrow 10 AM. uhm,1
+"[logistics] Noel to submit calibration notes by Tuesday afternoon., thanks",1
+[banking] The finance memo summarized Q2 spending. after lunch,0
+[agritech] Pakicheck kung na-sign na yung MOA by Tuesday afternoon. after lunch,1
+[energy] Historical note: this process started in 2021. now na,0
+[agritech] Noel will present the root-cause analysis on Wednesday EOD.,1
+"[fintech] Yuri, i-follow up mo yung API key rotation Monday. (urgent)",1
+[govtech] Ihanda mo yung remediation memo and send by by end of shift. uhm,1
+[banking] The update was descriptive and did not include an assignment.,0
+[education] Finalize the migration checklist and share by Wednesday EOD. uhm,1
+"[hospitality] FYI, transcript quality dropped when mic was far away. after lunch",0
+[education] Coordinate a pilot run and report outcomes by next week.,1
+"[healthcare] General update lang, no deadline was provided., thanks",0
+[telecom] Wala pang final owner for the rollout topic. uhm,0
+[banking] Just noting that legal prefers plain-language terms. after lunch,0
+"[agritech] Yuri will present the root-cause analysis on Wednesday EOD., thanks",1
+"[energy] Wren, paki-approve yung purchase request today tomorrow 10 AM. now na",1
+[insurance] Nasa planning stage pa lahat ng sinabi kanina. now na,0
+[ecommerce] This section is informational and non-actionable. ASAP,0
+"[agritech] FYI, the supplier changed their office address last quarter. uhm",0
+[banking] Farah will collect signatures from all leads by this weekend. after lunch,1
+[hospitality] Meeting note: multiple teams requested clarification. ASAP,0
+[education] The team reviewed examples from other countries. uhm,0
+"[fintech] Rina needs to coordinate with procurement this next week., thanks",1
+[ecommerce] Paki-update ang firewall rules then report back by Wednesday EOD. uhm,1
+[telecom] Pakiclose yung duplicate invoices bago mag today EOD. after lunch,1
+[manufacturing] The committee discussed several options without final decisions. (urgent),0
+[logistics] Please submit ethics review requirements by tomorrow 10 AM. after lunch,1
+[telecom] Noted that several tickets were duplicates. (urgent),0
+[energy] The model score drifted by about 3 percent. after lunch,0
+[healthcare] Historical note: this process started in 2021. after lunch,0
+[hospitality] Paki-schedule ng calibration call sa ops this tomorrow before lunch.,1
+[govtech] Route this ticket to infra and request ETA by tomorrow before lunch.,1
+[retail] Pinag-uusapan pa lang yung migration approach.,0
+[manufacturing] Run regression tests and attach evidence by next week. uhm,1
+[healthcare] Generate the trial balance and send it to finance tomorrow before lunch. please,1
+[agritech] Please compile customer complaints and triage them by tomorrow 10 AM. after lunch,1
+[education] Please call the supplier and confirm delivery for this weekend.,1
+[banking] Please set up the interview panel for Monday. uhm,1
+[education] May mention ng follow-up pero walang assigned person. uhm,0
+[healthcare] Route this ticket to infra and request ETA by tomorrow 10 AM. uhm,1
+[ecommerce] Context only: this metric includes trial accounts. (urgent),0
+"[healthcare] Eun, submit the SOC report before on April 30. please",1
+[healthcare] Create user training slides and rehearse by Monday. uhm,1
+[retail] Can you clean the dataset and remove PII by today EOD? (urgent),1
+[manufacturing] Arrange transport permits and file docs by today EOD. now na,1
+[telecom] Please set up the interview panel for Wednesday EOD. after lunch,1
+[govtech] Maki-coordinate sa warehouse para ma-release ang shipment by today EOD. please,1
+"[banking] Bianca, i-follow up mo yung API key rotation today EOD. ASAP",1
+[govtech] Context only: this metric includes trial accounts. uhm,0
+[ecommerce] The experiment used a very small sample size. ASAP,0
+[fintech] Please draft three mitigation options by tomorrow before lunch. ASAP,1
+"[energy] Please compile customer complaints and triage them by by end of shift., thanks",1
+[retail] Generate the trial balance and send it to finance by end of shift. now na,1
+[insurance] Rina to confirm attendee list for tomorrow 10 AM. please,1
+[telecom] The legal team shared background notes about prior disputes. now na,0
+[insurance] Omar to submit calibration notes by next week.,1
+[manufacturing] Omar will present the root-cause analysis on Monday. please,1
+[banking] Wren will present the root-cause analysis on today EOD. after lunch,1
+[education] Context note: metrics were shared for transparency only. now na,0
+[insurance] Wala pang final owner for the rollout topic. ASAP,0
+[fintech] Just a reminder that holidays affect shipping windows. ASAP,0
+"[energy] Finalize the migration checklist and share by tomorrow before lunch., thanks",1
+[manufacturing] The board asked for visibility into risks. uhm,0
+[healthcare] Arrange transport permits and file docs by by end of shift. ASAP,1
+[energy] Please archive old logs and free disk space by tomorrow 10 AM. now na,1
+[ecommerce] The issue appears related to DNS propagation delays. ASAP,0
+[hospitality] Paki-update ang firewall rules then report back by within 24 hours. ASAP,1
+[banking] Wala pang final owner for the rollout topic. uhm,0
+[energy] The update was descriptive and did not include an assignment. please,0
+[hospitality] Quinn will collect signatures from all leads by tomorrow before lunch. uhm,1
+"[energy] The pilot timeline is tentative and may shift., thanks",0
+"[telecom] May idea lang about possible redesign, not yet committed. uhm",0
+"[insurance] Route this ticket to infra and request ETA by tomorrow 10 AM., thanks",1
+[healthcare] Can you clean the dataset and remove PII by this weekend? now na,1
+[education] The team reviewed examples from other countries. (urgent),0
+[insurance] No concrete commitment was captured in that segment. uhm,0
+[manufacturing] Mika should validate bilingual labels by before 5 PM. after lunch,1
+[fintech] Just a reminder that holidays affect shipping windows.,0
+[telecom] Arrange transport permits and file docs by this weekend. after lunch,1
+[logistics] The dashboard latency is currently around 220ms average. uhm,0
+[logistics] Pakisend yung incident timeline sa security team next week.,1
+"[insurance] FYI, transcript quality dropped when mic was far away. please",0
+[banking] Please backfill missing translations before this Friday. after lunch,1
+[education] Ihanda mo yung remediation memo and send by Tuesday afternoon. ASAP,1
+"[manufacturing] No owner or due date was confirmed in this part., thanks",0
+[banking] I-endorse mo kay legal yung revised clause mamayang tomorrow 10 AM. after lunch,1
+[ecommerce] Pakicheck kung na-sign na yung MOA by tomorrow before lunch. now na,1
+[manufacturing] A quick recap was shared at the end of the call. uhm,0
+[hospitality] The finance memo summarized Q2 spending.,0
+"[banking] FYI, transcript quality dropped when mic was far away. please",0
+[telecom] Pakicheck kung na-sign na yung MOA by today EOD. (urgent),1
+[insurance] Please verify the API deprecation list before this weekend.,1
+[banking] Prepare the monthly KPI summary and submit by before 5 PM. after lunch,1
+[fintech] Context note: metrics were shared for transparency only. uhm,0
+[healthcare] Assign someone to document rollback steps by today EOD.,1
+[insurance] Noted that several tickets were duplicates. please,0
+[telecom] Ihanda mo yung remediation memo and send by this Friday. after lunch,1
+[manufacturing] Napag-usapan ang budget cap pero wala pang next step. ASAP,0
+"[ecommerce] Observation: users prefer shorter confirmation emails., thanks",0
+[hospitality] Napag-usapan ang budget cap pero wala pang next step. after lunch,0
+[energy] The board asked for visibility into risks. now na,0
+[hospitality] A quick recap was shared at the end of the call. please,0
+[energy] Can you clean the dataset and remove PII by before 5 PM? ASAP,1
+[hospitality] The branch reported intermittent internet this morning. uhm,0
+[education] Create user training slides and rehearse by Wednesday EOD. after lunch,1
+[manufacturing] Pakiprioritize yung outage RCA and circulate by by end of shift. please,1
+[logistics] Discussion point: maybe we can simplify onboarding. please,0
+[healthcare] Please compile customer complaints and triage them by Monday. now na,1
+"[retail] FYI, transcript quality dropped when mic was far away. ASAP",0
+"[agritech] The team reviewed examples from other countries., thanks",0
+[ecommerce] Pinag-uusapan pa lang yung migration approach.,0
+"[agritech] Please finalize the vendor contract draft by on April 30., thanks",1
+"[fintech] Please submit ethics review requirements by tomorrow before lunch., thanks",1
+[ecommerce] Nasa planning stage pa lahat ng sinabi kanina.,0
+[agritech] No concrete commitment was captured in that segment. now na,0
+[fintech] Alex to submit calibration notes by before 5 PM. after lunch,1
+"[logistics] Uma, draft the parent email advisory for tomorrow before lunch. ASAP",1
+[education] The finance memo summarized Q2 spending. after lunch,0
+[manufacturing] Paki-update ang firewall rules then report back by this weekend. uhm,1
+[energy] Noted that several tickets were duplicates. now na,0
+[hospitality] Context only: this metric includes trial accounts. ASAP,0
+[insurance] The branch reported intermittent internet this morning. ASAP,0
+"[ecommerce] FYI, the supplier changed their office address last quarter.",0
+[energy] Please schedule user acceptance testing by tomorrow before lunch. please,1
+[logistics] I-endorse mo kay legal yung revised clause mamayang next week. (urgent),1
+[banking] Just sharing that QA coverage reached 81 percent.,0
+[govtech] Context only: this metric includes trial accounts.,0
+[telecom] Context: vendor response time improved recently. ASAP,0
+"[retail] The model score drifted by about 3 percent., thanks",0
+"[fintech] Nabanggit lang na may audit next month, wala pang action owner. now na",0
+[banking] Quinn will collect signatures from all leads by within 24 hours. uhm,1
+[telecom] The update was descriptive and did not include an assignment. ASAP,0
+[insurance] Please refactor the parser and open a PR by Wednesday EOD. now na,1
+[agritech] Just sharing that QA coverage reached 81 percent. uhm,0
+[insurance] Please set up the interview panel for tomorrow before lunch. (urgent),1
+[education] Just noting that legal prefers plain-language terms. after lunch,0
+[logistics] No concrete commitment was captured in that segment.,0
+[retail] Generate the trial balance and send it to finance today EOD. now na,1
+"[manufacturing] Just noting that legal prefers plain-language terms., thanks",0
+"[manufacturing] A quick recap was shared at the end of the call., thanks",0
+"[telecom] Quinn, i-follow up mo yung API key rotation tomorrow 10 AM. ASAP",1
+[healthcare] Please escalate unresolved cases to L2 before today EOD. now na,1
+[agritech] Pakiprioritize yung outage RCA and circulate by tomorrow before lunch. please,1
+[retail] The finance memo summarized Q2 spending. (urgent),0
+"[agritech] FYI, customer sentiment improved compared to last month. now na",0
+[ecommerce] Reconcile the ledger mismatch and update by this weekend. please,1
+[banking] Create user training slides and rehearse by next week. now na,1
+[ecommerce] Mika will collect signatures from all leads by next week. (urgent),1
+[agritech] Background: this policy came from regional compliance. please,0
+"[healthcare] Customer asked questions, but no commitments yet. (urgent)",0
+[healthcare] Zane needs to coordinate with procurement this tomorrow 10 AM. please,1
+"[banking] Nabanggit lang na may audit next month, wala pang action owner. now na",0
+[manufacturing] Pakicheck kung na-sign na yung MOA by today EOD. uhm,1
+[healthcare] The dashboard latency is currently around 220ms average. please,0
+[telecom] May mention ng follow-up pero walang assigned person. now na,0
+"[insurance] There was mention of a pilot, but no owner named., thanks",0
+"[hospitality] Noel, draft the parent email advisory for by end of shift. (urgent)",1
+[logistics] Arrange transport permits and file docs by before 5 PM. after lunch,1
+[insurance] Create user training slides and rehearse by next week. uhm,1
+[hospitality] Please archive old logs and free disk space by on April 30. after lunch,1
+"[insurance] Route this ticket to infra and request ETA by tomorrow before lunch., thanks",1
+[healthcare] Please verify the API deprecation list before next week. please,1
+[telecom] Please compile customer complaints and triage them by tomorrow 10 AM. now na,1
+[education] The pilot timeline is tentative and may shift.,0
+"[retail] General update lang, no deadline was provided.",0
+[healthcare] Noted that several tickets were duplicates. please,0
+[education] Discussion point: maybe we can simplify onboarding. ASAP,0
+[manufacturing] Can you clean the dataset and remove PII by by end of shift? after lunch,1
+"[ecommerce] Customer asked questions, but no commitments yet. please",0
+[insurance] Wala pang final owner for the rollout topic. (urgent),0
+[energy] Meeting note: multiple teams requested clarification. after lunch,0
+[ecommerce] Context note: metrics were shared for transparency only. uhm,0
+"[hospitality] Omar, paki-approve yung purchase request today this weekend. please",1
+[telecom] I-endorse mo kay legal yung revised clause mamayang on April 30.,1
+[manufacturing] Meeting note: multiple teams requested clarification.,0
+[manufacturing] General discussion about priorities continued. please,0
+[logistics] Just sharing that QA coverage reached 81 percent. ASAP,0
+[fintech] Run regression tests and attach evidence by before 5 PM. please,1
+"[insurance] There was mention of a pilot, but no owner named. uhm",0
+[fintech] Prepare the compliance checklist and share it by this Friday. ASAP,1
+[fintech] Arrange transport permits and file docs by Tuesday afternoon. please,1
+[hospitality] Please schedule user acceptance testing by this weekend. after lunch,1
+[banking] Pakiscan yung branch forms and upload by this Friday. (urgent),1
+[ecommerce] Please backfill missing translations before within 24 hours.,1
+[hospitality] Status update only: the service is stable now. uhm,0
+[manufacturing] Finalize the migration checklist and share by Monday. ASAP,1
+[hospitality] Noel should validate bilingual labels by tomorrow 10 AM. ASAP,1
+[hospitality] Status update only: the service is stable now. after lunch,0
+[insurance] Noted that several tickets were duplicates. now na,0
+[logistics] Wren should validate bilingual labels by tomorrow before lunch. after lunch,1
+[energy] The board asked for visibility into risks. (urgent),0
+[healthcare] The board asked for visibility into risks. please,0
+"[education] Please archive old logs and free disk space by on April 30., thanks",1
+[manufacturing] Paki-schedule ng calibration call sa ops this today EOD.,1
+[logistics] Paki-update ang firewall rules then report back by on April 30. (urgent),1
+[education] A quick recap was shared at the end of the call. after lunch,0
+[ecommerce] Pakiverify ng QA yung payment retry flow before by end of shift. after lunch,1
+[fintech] Pakiverify ng QA yung payment retry flow before tomorrow 10 AM. ASAP,1
+[fintech] Please escalate unresolved cases to L2 before on April 30. uhm,1
+[agritech] The experiment used a very small sample size. ASAP,0
+[energy] Please schedule user acceptance testing by within 24 hours. please,1
+[telecom] Noted that several tickets were duplicates. after lunch,0
+[retail] The experiment used a very small sample size. (urgent),0
+"[insurance] For awareness, this account has premium support. after lunch",0
+[fintech] Coordinate with HR to release onboarding docs Monday. uhm,1
+[retail] Context: vendor response time improved recently. after lunch,0
+"[govtech] Pinresent lang yung findings, walang task handoff. after lunch",0
+[agritech] The dashboard latency is currently around 220ms average. uhm,0
+[education] Ihanda mo yung remediation memo and send by by end of shift. (urgent),1
+[agritech] Bianca will collect signatures from all leads by by end of shift. please,1
+"[agritech] FYI, the supplier changed their office address last quarter.",0
+"[fintech] Wren, paki-approve yung purchase request today this weekend. uhm",1
+"[education] The legal team shared background notes about prior disputes., thanks",0
+[education] Please set up the interview panel for Wednesday EOD. now na,1
+[govtech] Please finalize the vendor contract draft by next week. (urgent),1
+[retail] A quick recap was shared at the end of the call. ASAP,0
+"[manufacturing] May proposal pero hindi pa approved ng steering group., thanks",0
+[hospitality] Quinn should validate bilingual labels by tomorrow before lunch. uhm,1
+"[hospitality] Wren, paki-approve yung purchase request today next week. (urgent)",1
+[govtech] May proposal pero hindi pa approved ng steering group. uhm,0
+"[agritech] Coordinate with HR to release onboarding docs Tuesday afternoon., thanks",1
+[hospitality] Pakiprioritize yung outage RCA and circulate by before 5 PM. after lunch,1
+[retail] Reconcile the ledger mismatch and update by tomorrow 10 AM.,1
+[education] Uma will present the root-cause analysis on Wednesday EOD. uhm,1
+[healthcare] The pilot timeline is tentative and may shift.,0
+[insurance] The transcript mentions API keys but no assignment was made. now na,0
+"[manufacturing] General update lang, no deadline was provided., thanks",0
+[energy] Meeting note: multiple teams requested clarification. please,0
+"[banking] Seth, paki-approve yung purchase request today this weekend. please",1
+[hospitality] Wala pang final owner for the rollout topic.,0
+[energy] A quick recap was shared at the end of the call.,0
+"[manufacturing] General update lang, no deadline was provided.",0
+"[education] Maki-coordinate sa warehouse para ma-release ang shipment by by end of shift., thanks",1
+[hospitality] May proposal pero hindi pa approved ng steering group. ASAP,0
+[agritech] A quick recap was shared at the end of the call. now na,0
+[healthcare] No owner or due date was confirmed in this part. ASAP,0
+"[telecom] Assign someone to document rollback steps by this Friday., thanks",1
+"[ecommerce] Pinag-uusapan pa lang yung migration approach., thanks",0
+[banking] Please call the supplier and confirm delivery for this weekend. uhm,1
+"[education] FYI, customer sentiment improved compared to last month. now na",0
+[logistics] The sandbox outage happened twice last week. (urgent),0
+[agritech] Pakiscan yung branch forms and upload by Wednesday EOD. uhm,1
+[fintech] The update was descriptive and did not include an assignment. uhm,0
+[fintech] Pakicheck kung na-sign na yung MOA by tomorrow before lunch. now na,1
+"[retail] General update lang, no deadline was provided., thanks",0
+[banking] Context only: this metric includes trial accounts. after lunch,0
+[fintech] Noel will collect signatures from all leads by this Friday. please,1
+[education] Dana should validate bilingual labels by on April 30. after lunch,1
+[telecom] No concrete commitment was captured in that segment. after lunch,0
+[manufacturing] Noted that several tickets were duplicates. please,0
+[insurance] Carlo should validate bilingual labels by within 24 hours. (urgent),1
+[telecom] May mention ng follow-up pero walang assigned person.,0
+[logistics] Xara needs to coordinate with procurement this within 24 hours. (urgent),1
+"[govtech] There was mention of a pilot, but no owner named. after lunch",0
+[govtech] The board asked for visibility into risks. ASAP,0
+"[education] Pinresent lang yung findings, walang task handoff. please",0
+[healthcare] No owner or due date was confirmed in this part. (urgent),0
+[manufacturing] Paki-update ang firewall rules then report back by Monday. please,1
+[insurance] Napag-usapan ang budget cap pero wala pang next step. uhm,0
+[banking] Run regression tests and attach evidence by tomorrow before lunch.,1
+[insurance] Please escalate unresolved cases to L2 before Monday. (urgent),1
+[manufacturing] This section is informational and non-actionable. (urgent),0
+[banking] Just sharing that QA coverage reached 81 percent. now na,0
+"[hospitality] FYI, transcript quality dropped when mic was far away. now na",0
+"[insurance] Xara to confirm attendee list for next week., thanks",1
+[hospitality] Just noting that legal prefers plain-language terms. ASAP,0
+[education] No concrete commitment was captured in that segment. uhm,0
+"[agritech] Finalize the migration checklist and share by next week., thanks",1
+[agritech] Paki-schedule ng calibration call sa ops this tomorrow before lunch. uhm,1
+[ecommerce] Mika to prepare the board deck before tomorrow 10 AM. (urgent),1
+[banking] Pakiclose yung duplicate invoices bago mag Wednesday EOD. ASAP,1
+"[energy] Gio should validate bilingual labels by by end of shift., thanks",1
+[energy] Create user training slides and rehearse by Monday.,1
+[ecommerce] Pinag-uusapan pa lang yung migration approach. ASAP,0
+"[logistics] Lara, i-follow up mo yung API key rotation this Friday., thanks",1
+[ecommerce] Just a reminder that holidays affect shipping windows. after lunch,0
+[energy] Arrange transport permits and file docs by Tuesday afternoon. uhm,1
+[govtech] The update was descriptive and did not include an assignment. now na,0
+[manufacturing] Can you deploy the hotfix to staging by within 24 hours? ASAP,1
+[agritech] The committee discussed several options without final decisions.,0
+[telecom] Paki-schedule ng calibration call sa ops this Monday. (urgent),1
+[logistics] The branch reported intermittent internet this morning. please,0
+[banking] Please verify the API deprecation list before on April 30.,1
+[healthcare] Yuri will present the root-cause analysis on on April 30. please,1
+[manufacturing] Pinag-uusapan pa lang yung migration approach.,0
+[banking] Nasa planning stage pa lahat ng sinabi kanina.,0
+[healthcare] Can you clean the dataset and remove PII by next week? now na,1
+"[banking] For context, our churn peaked during the rainy season. uhm",0
+[ecommerce] No owner or due date was confirmed in this part. now na,0
+"[healthcare] Paki-schedule ng calibration call sa ops this on April 30., thanks",1
+[education] Just sharing that QA coverage reached 81 percent. after lunch,0
+[agritech] Historical note: this process started in 2021. after lunch,0
+"[ecommerce] Pinresent lang yung findings, walang task handoff. please",0
+[healthcare] Generate the trial balance and send it to finance within 24 hours. after lunch,1
+"[hospitality] Reconcile the ledger mismatch and update by tomorrow 10 AM., thanks",1
+[insurance] Dana should validate bilingual labels by this weekend. now na,1
+"[fintech] Ivan will present the root-cause analysis on today EOD., thanks",1
+[fintech] A quick recap was shared at the end of the call. please,0
+"[telecom] Napag-usapan ang budget cap pero wala pang next step., thanks",0
+[logistics] Pakicheck kung na-sign na yung MOA by tomorrow 10 AM. please,1
+[hospitality] Discussion point: maybe we can simplify onboarding.,0
+"[ecommerce] Hana, draft the parent email advisory for tomorrow 10 AM. please",1
+"[govtech] Status update only: the service is stable now., thanks",0
+"[govtech] General discussion about priorities continued., thanks",0
+[education] The branch reported intermittent internet this morning.,0
+[healthcare] Pakiprioritize yung outage RCA and circulate by this Friday. after lunch,1
+"[manufacturing] Farah needs to coordinate with procurement this before 5 PM., thanks",1
+[ecommerce] Maki-coordinate sa warehouse para ma-release ang shipment by tomorrow 10 AM. now na,1
+[manufacturing] Pinag-uusapan pa lang yung migration approach. please,0
+[hospitality] Noted that several tickets were duplicates. please,0
+[hospitality] Can you deploy the hotfix to staging by on April 30? ASAP,1
+"[banking] FYI, the supplier changed their office address last quarter. (urgent)",0
+"[agritech] Nasa planning stage pa lahat ng sinabi kanina., thanks",0
+[healthcare] Noted that several tickets were duplicates.,0
+[agritech] Meeting note: multiple teams requested clarification. after lunch,0
+[healthcare] The board asked for visibility into risks. ASAP,0
+[telecom] I-endorse mo kay legal yung revised clause mamayang within 24 hours. ASAP,1
+"[logistics] Lara, draft the parent email advisory for tomorrow before lunch.",1
+"[govtech] Ivan, i-follow up mo yung API key rotation by end of shift. uhm",1
+"[retail] General update lang, no deadline was provided. uhm",0
+[fintech] Pakiverify ng QA yung payment retry flow before before 5 PM.,1
+[education] The sandbox outage happened twice last week. uhm,0
+[retail] Can you deploy the hotfix to staging by next week? uhm,1
+[education] Reconcile the ledger mismatch and update by by end of shift. now na,1
+[retail] Please draft three mitigation options by on April 30. after lunch,1
+[insurance] Ihanda mo yung remediation memo and send by this weekend.,1
+[banking] The experiment used a very small sample size. now na,0
+[logistics] Just a reminder that holidays affect shipping windows.,0
+[banking] Bianca needs to coordinate with procurement this tomorrow 10 AM. please,1
+[healthcare] Just sharing that QA coverage reached 81 percent. after lunch,0
+[banking] Run regression tests and attach evidence by this weekend. uhm,1
+[govtech] Run regression tests and attach evidence by on April 30.,1
+[fintech] Run regression tests and attach evidence by this weekend.,1
+[telecom] Jules to prepare the board deck before Tuesday afternoon. ASAP,1
+"[agritech] Please archive old logs and free disk space by tomorrow 10 AM., thanks",1
+[agritech] Arrange transport permits and file docs by within 24 hours. now na,1
+[energy] A quick recap was shared at the end of the call. please,0
+"[energy] Uma, draft the parent email advisory for tomorrow before lunch. ASAP",1
+[education] Please compile customer complaints and triage them by by end of shift. please,1
+"[education] General update lang, no deadline was provided. now na",0
+"[agritech] FYI only, the docs were viewed 420 times.",0
+[education] The dashboard latency is currently around 220ms average.,0
+"[education] Nabanggit lang na may audit next month, wala pang action owner. now na",0
+[govtech] Please submit ethics review requirements by before 5 PM. now na,1
+[agritech] Update the risk register and tag the blockers by next week. please,1
+"[healthcare] Carlo, draft the parent email advisory for Tuesday afternoon. uhm",1
+[govtech] Please verify the API deprecation list before within 24 hours. please,1
+[telecom] Please compile customer complaints and triage them by tomorrow before lunch. now na,1
+[hospitality] Please schedule user acceptance testing by next week. ASAP,1
+[insurance] Please escalate unresolved cases to L2 before today EOD.,1
+[energy] Observed lang na mataas yung retries after 6 PM. please,0
+[hospitality] The sandbox outage happened twice last week.,0
+[energy] Status update only: the service is stable now. now na,0
+[retail] Assign someone to document rollback steps by Tuesday afternoon. (urgent),1
+"[education] Nabanggit lang na may audit next month, wala pang action owner. please",0
