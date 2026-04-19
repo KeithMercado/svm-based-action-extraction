@@ -14,6 +14,8 @@ class ReportContentFormatter:
 
     MARKDOWN_HEADING_PATTERN = re.compile(r"^\s{0,3}#{1,6}\s*")
     BULLET_PREFIX_PATTERN = re.compile(r"^\s*[-*•]\s+")
+    ACTION_SECTION_PATTERN = re.compile(r"^\s*(?:#{1,6}\s*)?action items?\s*:?\s*$", flags=re.IGNORECASE)
+    NUMBERED_PREFIX_PATTERN = re.compile(r"^\s*\d+[\.)]\s+")
 
     def clean_summary(self, summary_text):
         lines = (summary_text or "").splitlines()
@@ -71,31 +73,84 @@ class ReportContentFormatter:
         return paragraphs if paragraphs else [text]
 
     def build_action_explanation(self, action_item):
-        item = (action_item or "").lower()
-        if any(keyword in item for keyword in ["review", "annotate", "source", "citation", "credible", "wiki", "blog"]):
-            return (
-                "Gather all references, verify each source against academic journals or official publications, "
-                "replace weak references, and submit a finalized citation list for review."
-            )
-        if any(keyword in item for keyword in ["schedule", "meeting", "sync", "follow-up"]):
-            return (
-                "Assign an owner, lock the schedule, share agenda points ahead of time, and document final decisions "
-                "after the session."
-            )
-        if any(keyword in item for keyword in ["deadline", "submit", "deliver"]):
-            return (
-                "Break work into checkpoints, assign accountable members, track progress in weekly updates, and escalate "
-                "blockers before the deadline."
-            )
-        if any(keyword in item for keyword in ["test", "validate", "check", "qa"]):
-            return (
-                "Define acceptance criteria, run validation scenarios, log defects clearly, and close the item only after "
-                "successful retesting."
-            )
-        return (
-            "Define the expected output, assign a single owner, set a due date, and post progress updates in the team "
-            "tracker until closure."
-        )
+        """Generate a contextual, relatable explanation tied to the specific action item."""
+        item = (action_item or "").strip()
+        item_lower = item.lower()
+        
+        # Extract key action verbs and nouns for personalization
+        if any(verb in item_lower for verb in ["prepare", "create", "write", "draft", "develop"]):
+            return f"Take ownership of {item}. Set a clear deadline, break it into smaller milestones, and share progress weekly with stakeholders."
+        
+        if any(verb in item_lower for verb in ["review", "analyze", "audit", "check", "examine"]):
+            return f"Schedule time to {item_lower.split()[0] if item_lower.split() else 'review'} thoroughly. Document your findings and share feedback with the team."
+        
+        if any(verb in item_lower for verb in ["schedule", "organize", "arrange", "book", "set up"]):
+            return f"Coordinate {item} with all participants. Send calendar invites, attach agenda, and confirm attendance 24 hours prior."
+        
+        if any(verb in item_lower for verb in ["test", "validate", "verify", "qa"]):
+            return f"Execute {item} in a controlled environment. Log all findings, prioritize issues, and retest after fixes are applied."
+        
+        if any(verb in item_lower for verb in ["submit", "deliver", "send", "provide", "share"]):
+            return f"Complete {item} by the agreed deadline. Ensure quality, obtain any required approvals, and deliver to the specified recipients."
+        
+        if any(verb in item_lower for verb in ["update", "document", "record", "log"]):
+            return f"Keep {item} current and accurate. Update the team regularly and ensure all relevant stakeholders have access."
+        
+        # Fallback: create a simple, direct explanation
+        return f"Complete this action item: {item}. Assign ownership, set a deadline, track progress, and communicate status updates regularly."
+
+    def extract_llama_action_items(self, summary_text):
+        """Extract bullet/numbered action items produced by Llama in the summary output."""
+        lines = (summary_text or "").splitlines()
+        in_action_section = False
+        items = []
+
+        for raw_line in lines:
+            line = raw_line.strip()
+            if not line:
+                if in_action_section:
+                    continue
+                continue
+
+            if self.ACTION_SECTION_PATTERN.match(line):
+                in_action_section = True
+                continue
+
+            if not in_action_section:
+                # Handle inline format: "Action Items: - item one"
+                inline_match = re.match(r"^\s*(?:#{1,6}\s*)?action items?\s*:\s*(.+)$", line, flags=re.IGNORECASE)
+                if inline_match:
+                    in_action_section = True
+                    line = inline_match.group(1).strip()
+                else:
+                    continue
+
+            # If section has started, capture bullet/numbered lines.
+            candidate = self.BULLET_PREFIX_PATTERN.sub("", line)
+            candidate = self.NUMBERED_PREFIX_PATTERN.sub("", candidate).strip()
+
+            # Stop if a new major heading appears after action section started.
+            if re.match(r"^\s*(?:#{1,6}\s*)?[A-Za-z][A-Za-z\s]{2,30}:\s*$", line):
+                break
+
+            if not candidate:
+                continue
+
+            lowered = candidate.lower()
+            if any(marker in lowered for marker in ["none identified", "no action items", "none provided", "n/a"]):
+                continue
+
+            items.append(candidate)
+
+        deduped = []
+        seen = set()
+        for item in items:
+            key = re.sub(r"\s+", " ", item.strip().lower())
+            if key and key not in seen:
+                seen.add(key)
+                deduped.append(item.strip())
+
+        return deduped
 
 
 class ReportStyleFactory:
@@ -212,8 +267,9 @@ class ExportService:
         start_time=None,
         end_time=None,
         source_file=None,
+        topics=None,
     ):
-        """Generate a professional PDF report with a clean narrative summary and SVM action items."""
+        """Generate a professional PDF report with narrative summary and Llama action items."""
         try:
             from reportlab.lib.pagesizes import A4
             from reportlab.lib import colors
@@ -260,8 +316,18 @@ class ExportService:
             story.append(Paragraph(escape(paragraph), report_styles["body"]))
         story.append(Spacer(1, 0.1 * inch))
 
-        story.append(Paragraph("Action Items from SVM Model", report_styles["heading"]))
-        items = action_items or []
+        # Topics Discussed section
+        if topics:
+            story.append(Paragraph("Topics Discussed", report_styles["heading"]))
+            topic_list = topics if isinstance(topics, list) else [topics]
+            for idx, topic in enumerate(topic_list, 1):
+                clean_topic = str(topic).strip()
+                if clean_topic:
+                    story.append(Paragraph(f"<b>{idx}.</b> {escape(clean_topic)}", report_styles["body"]))
+            story.append(Spacer(1, 0.1 * inch))
+
+        story.append(Paragraph("Action Items (Llama Classification)", report_styles["heading"]))
+        items = self.formatter.extract_llama_action_items(summary or "")
         if items:
             for item in items:
                 clean_item = item.strip()
@@ -270,18 +336,18 @@ class ExportService:
                 story.append(Paragraph(f"<b>• Action Item:</b> {escape(clean_item)}", report_styles["action_item"]))
                 story.append(
                     Paragraph(
-                        f"<i>How to do this:</i> {escape(self.formatter.build_action_explanation(clean_item))}",
+                        f"<i>Task:</i> {escape(self.formatter.build_action_explanation(clean_item))}",
                         report_styles["action_help"],
                     )
                 )
         else:
-            story.append(Paragraph("<i>No specific action items were detected by the SVM model.</i>", report_styles["body"]))
+            story.append(Paragraph("<i>No action items were identified by Llama in the generated summary.</i>", report_styles["body"]))
 
         # Optional section for future use:
-        # story.append(Spacer(1, 0.14 * inch))
-        # story.append(Paragraph("Full Transcription", report_styles["heading"]))
-        # safe_content = escape(content or "[Empty Transcript]").replace("\n", "<br/>")
-        # story.append(Paragraph(safe_content, report_styles["transcript"]))
+        story.append(Spacer(1, 0.14 * inch))
+        story.append(Paragraph("Full Transcription", report_styles["heading"]))
+        safe_content = escape(content or "[Empty Transcript]").replace("\n", "<br/>")
+        story.append(Paragraph(safe_content, report_styles["transcript"]))
 
         doc.build(story)
         return pdf_path

@@ -4,6 +4,7 @@ Handles both Groq and Local Whisper transcriptions.
 """
 
 import os
+import re
 import time
 import tempfile
 from faster_whisper import WhisperModel
@@ -32,20 +33,40 @@ class Transcriber:
             self.local_model = WhisperModel(model_size, device="cpu", compute_type="int8")
         return self.local_model
 
+    def _recommended_wait_seconds(self, error, attempt):
+        """Derive retry wait from Groq rate-limit messages, with safe fallback."""
+        msg = str(error)
+        lowered = msg.lower()
+
+        # Parse text like: "Please try again in 1m3.5s"
+        match = re.search(r"try again in\s*(?:(\d+)m)?\s*(\d+(?:\.\d+)?)s", lowered)
+        if match:
+            minutes = int(match.group(1) or 0)
+            seconds = float(match.group(2) or 0)
+            return max(1, int(minutes * 60 + seconds + 1))
+
+        # For generic rate-limit errors, use slower exponential backoff.
+        if "429" in lowered or "rate_limit" in lowered or "rate limit" in lowered:
+            return min(120, 8 * attempt)
+
+        return min(30, 2 * attempt)
+
     def transcribe_with_groq_retries(
         self,
         file_path,
         language="tl",
         retries=3,
         initial_prompt=None,
+        auto_fallback_to_local=True,
     ):
-        """Transcribe with Groq API, with automatic retries on failure."""
+        """Transcribe with Groq API, with automatic retries on failure and fallback to local."""
         if not GROQ_AVAILABLE:
             raise RuntimeError(
                 f"Groq integration is unavailable: {GROQ_IMPORT_ERROR}"
             )
 
         last_error = None
+        is_rate_limit_error = False
         for attempt in range(1, retries + 1):
             try:
                 return transcribe_with_groq(
@@ -55,13 +76,31 @@ class Transcriber:
                 )
             except Exception as e:
                 last_error = e
+                msg = str(e).lower()
+                if "429" in msg or "rate_limit" in msg or "rate limit" in msg:
+                    is_rate_limit_error = True
+
                 if attempt < retries:
-                    wait_s = 2 * attempt
+                    wait_s = self._recommended_wait_seconds(e, attempt)
                     print(
                         f"[System] Groq attempt {attempt}/{retries} failed: {e}. "
                         f"Retrying in {wait_s}s..."
                     )
                     time.sleep(wait_s)
+
+        if is_rate_limit_error and auto_fallback_to_local:
+            print(
+                "[System] Groq rate limit exhausted. Falling back to local Whisper. "
+                "This may take longer but requires no API quota."
+            )
+            try:
+                model = self._load_local_model("medium")
+                segments, _ = model.transcribe(file_path, language=language)
+                segments = list(segments)
+                if segments:
+                    return " ".join([s.text for s in segments])
+            except Exception as fallback_error:
+                print(f"[System] Local fallback also failed: {fallback_error}")
 
         raise RuntimeError(
             f"Groq transcription failed after {retries} attempts: {last_error}"
@@ -95,13 +134,18 @@ class Transcriber:
 
             # Use chunked mode for large files or video
             if is_video_file(filename) or size_mb > 12:
+                segment_seconds = int(os.getenv("GROQ_SEGMENT_SECONDS", "120"))
+                segment_seconds = max(30, min(segment_seconds, 300))
                 print(
-                    f"[System] Using fast chunked Groq mode (size={size_mb:.1f} MB)..."
+                    f"[System] Using fast chunked Groq mode (size={size_mb:.1f} MB, chunk={segment_seconds}s)..."
                 )
                 from utils.audio_utils import transcribe_with_groq_chunked
 
                 return transcribe_with_groq_chunked(
-                    filename, language=language, retries=retries
+                    filename,
+                    language=language,
+                    retries=retries,
+                    segment_seconds=segment_seconds,
                 )
 
             return self.transcribe_with_groq_retries(

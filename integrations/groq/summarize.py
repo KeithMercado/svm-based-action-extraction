@@ -29,8 +29,9 @@ def summarize_with_groq(text: str, action_items: list[str] | None = None, model:
 
     user_prompt = (
         "Summarize the meeting content below in 3-6 sentences. "
-        "Then add a section named 'Action Items' with bullet points. "
-        "If no clear action items exist, write '- None identified'.\n\n"
+        "Then add a section exactly named 'Action Items:' and list only concrete, assigned, actionable tasks as bullet points ('- ...'). "
+        "Do not include general discussion points in Action Items. "
+        "If no clear action items exist, write exactly '- None identified'.\n\n"
         f"Transcript:\n{text[:12000]}\n\n"
         f"Detected Action Candidates:\n{actions_block if actions_block else '- None provided'}"
     )

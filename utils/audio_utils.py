@@ -43,7 +43,7 @@ def can_use_ffmpeg():
 
 
 def transcribe_with_groq_chunked(
-    file_path, language="tl", retries=3, segment_seconds=180
+    file_path, language="tl", retries=3, segment_seconds=120
 ):
     """
     Compress and chunk media for faster and more reliable Groq transcription.
@@ -59,6 +59,8 @@ def transcribe_with_groq_chunked(
     """
     if not GROQ_AVAILABLE:
         raise RuntimeError("Groq integration is not available")
+
+    segment_seconds = max(30, min(int(segment_seconds), 300))
 
     if not can_use_ffmpeg():
         print("[System] ffmpeg not found. Using direct Groq upload.")
