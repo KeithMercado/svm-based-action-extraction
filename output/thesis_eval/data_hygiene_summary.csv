@@ -1,5 +1,5 @@
 metric,value
-rows_before_dedup,181251
-rows_after_dedup,62253
-duplicates_removed,118998
+rows_before_dedup,184976
+rows_after_dedup,64144
+duplicates_removed,120832
 conflict_groups,12

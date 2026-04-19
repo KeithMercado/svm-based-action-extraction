@@ -8,3 +8,9 @@ uh let's see .,0,ami_dialogueActs_dataset.csv
 let's see what we can find here .,0,ami_dialogueActs_dataset.csv
 i'd say let's start with the first presentation .,0,ami_dialogueActs_dataset.csv
 "good morning everyone, let's start.",0,ami_multilingual_balanced.csv
+[healthcare] discussion point: maybe we can simplify onboarding. (urgent),0,mixed_all_datafolder_eval.csv
+[education] discussion point: maybe we can simplify onboarding. asap,0,mixed_trained_untrained_eval_600.csv
+[fintech] discussion point: maybe we can simplify onboarding. asap,0,unfamiliar_unexplored_eval_300.csv
+[healthcare] discussion point: maybe we can simplify onboarding. after lunch,0,unfamiliar_unexplored_eval_300.csv
+[logistics] discussion point: maybe we can simplify onboarding. please,0,unfamiliar_unexplored_eval_600.csv
+[hospitality] discussion point: maybe we can simplify onboarding.,0,unfamiliar_unexplored_eval_600.csv
