@@ -2,6 +2,7 @@ import threading
 import queue
 import time
 import os
+import re
 import tempfile
 import subprocess
 import glob
@@ -14,6 +15,7 @@ import scipy.io.wavfile as wav
 from sklearn.linear_model import SGDClassifier
 from sklearn.feature_extraction.text import HashingVectorizer
 from app.export_service import ExportService
+from core.segmenter import Segmenter
 
 try:
     from integrations.groq.transcribe import transcribe_with_groq
@@ -54,6 +56,7 @@ class AppLogic:
         self.vectorizer = HashingVectorizer(n_features=2**16, ngram_range=(1, 3), alternate_sign=False)
         self.classifier = self._load_or_init_classifier()
         self.local_bart = None
+        self.segmenter = Segmenter(chunk_size=5, max_tokens=1024)
         self.live_transcribe_prompt = (
             "This is a Taglish meeting transcript involving technical tasks and action items."
         )
@@ -105,29 +108,6 @@ class AppLogic:
             forced_bos_token_id=0,
         )
         return tokenizer.decode(summary_ids[0], skip_special_tokens=True).strip()
-
-    def _segment_topics(self, raw_text):
-        sentences = [s.strip() for s in raw_text.replace("so ", ". ").split(".") if len(s.strip()) > 5]
-        return [sentences[i:i + 5] for i in range(0, len(sentences), 5)]
-
-    def _extract_actions(self, topic_segments):
-        all_chunks_data = []
-        all_actions = []
-
-        for chunk in topic_segments:
-            detected_actions = []
-            for sentence in chunk:
-                prediction = self.classifier.predict(self._get_features(sentence))[0]
-                if prediction == 1:
-                    detected_actions.append(sentence)
-                    all_actions.append(sentence)
-
-            all_chunks_data.append({
-                "chunk_text": " ".join(chunk),
-                "actions": detected_actions,
-            })
-
-        return all_chunks_data, all_actions
 
     def _summarize_chunk(self, text, actions, engine):
         if engine == "groq":
@@ -291,11 +271,13 @@ class AppLogic:
         retries=3,
         quiet=False,
         initial_prompt=None,
+        auto_fallback_to_local=True,
     ):
         if transcribe_with_groq is None:
             raise RuntimeError(f"Groq integration unavailable: {GROQ_IMPORT_ERROR}")
 
         last_error = None
+        is_rate_limit_error = False
         for attempt in range(1, retries + 1):
             try:
                 return transcribe_with_groq(
@@ -305,16 +287,57 @@ class AppLogic:
                 )
             except Exception as e:
                 last_error = e
+                msg = str(e).lower()
+                if "429" in msg or "rate_limit" in msg or "rate limit" in msg:
+                    is_rate_limit_error = True
+
                 if attempt < retries and not quiet:
-                    wait_s = 2 * attempt
+                    wait_s = self._recommended_wait_seconds(e, attempt)
                     self._append_system_text(
                         f"Groq attempt {attempt}/{retries} failed: {e}. Retrying in {wait_s}s..."
                     )
                     time.sleep(wait_s)
 
+        if is_rate_limit_error and auto_fallback_to_local:
+            if not quiet:
+                self._append_system_text(
+                    "Groq rate limit exhausted. Falling back to local Whisper (slower but no quota needed)..."
+                )
+            try:
+                if self.file_transcriber is None:
+                    self.file_transcriber = WhisperModel("medium", device="cpu", compute_type="int8")
+                segments, _ = self.file_transcriber.transcribe(file_path, language=language)
+                segments = list(segments)
+                if segments:
+                    if not quiet:
+                        self._append_system_text(f"Local fallback transcription completed.")
+                    return " ".join([s.text for s in segments])
+            except Exception as fallback_error:
+                if not quiet:
+                    self._append_system_text(f"Local fallback also failed: {fallback_error}")
+
         raise RuntimeError(f"Groq failed after {retries} attempts: {last_error}")
 
-    def _transcribe_groq_chunked(self, file_path, language="tl", segment_seconds=180, quiet=False):
+    def _recommended_wait_seconds(self, error, attempt):
+        """Derive retry wait from Groq rate-limit messages, with safe fallback."""
+        msg = str(error)
+        lowered = msg.lower()
+
+        match = re.search(r"try again in\s*(?:(\d+)m)?\s*(\d+(?:\.\d+)?)s", lowered)
+        if match:
+            minutes = int(match.group(1) or 0)
+            seconds = float(match.group(2) or 0)
+            return max(1, int(minutes * 60 + seconds + 1))
+
+        if "429" in lowered or "rate_limit" in lowered or "rate limit" in lowered:
+            return min(120, 8 * attempt)
+
+        return min(30, 2 * attempt)
+
+    def _transcribe_groq_chunked(self, file_path, language="tl", segment_seconds=120, quiet=False):
+        segment_seconds = int(os.getenv("GROQ_SEGMENT_SECONDS", str(segment_seconds)))
+        segment_seconds = max(30, min(segment_seconds, 300))
+
         if not self._can_use_ffmpeg():
             if not quiet:
                 self._append_system_text("ffmpeg not found. Falling back to direct Groq upload.")
@@ -417,6 +440,19 @@ class AppLogic:
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _extract_topic_labels_from_metadata(self):
+        """Extract Llama-generated topical descriptions from Phase 2 segmentation metadata."""
+        metadata = self.segmenter.get_segment_metadata()
+        topics = []
+        for segment in metadata:
+            topical_desc = segment.get("topical_description", "").strip()
+            if topical_desc:
+                # Truncate if too long
+                topic = topical_desc[:80] + "..." if len(topical_desc) > 80 else topical_desc
+                topics.append(topic)
+        
+        return topics if topics else None
+
     def _process_file_to_pdf(self, file_path):
         t_start = time.perf_counter()
         media_duration_seconds = self._get_media_duration_seconds(file_path)
@@ -427,8 +463,24 @@ class AppLogic:
         if not text.strip():
             raise RuntimeError("No speech detected.")
 
-        topic_segments = self._segment_topics(text)
-        all_chunks_data, action_items = self._extract_actions(topic_segments)
+        # Phase 2: Use Segmenter for semantic segmentation with topical descriptions
+        self.segmenter.segment_text(text)
+        segment_metadata = self.segmenter.get_segment_metadata()
+        
+        # Extract actions from segment raw text
+        action_items = []
+        for segment in segment_metadata:
+            segment_text = segment.get("raw_text", "")
+            # Split by sentences and check each for action classification
+            sentences = [s.strip() for s in segment_text.split(".") if s.strip()]
+            for sentence in sentences:
+                if sentence:
+                    prediction = self.classifier.predict(self._get_features(sentence))[0]
+                    if prediction == 1:
+                        action_items.append(sentence)
+        
+        # Extract topical descriptions for PDF
+        topic_labels = self._extract_topic_labels_from_metadata()
 
         t1 = time.perf_counter()
         combined_summary = self._summarize_chunk(text, action_items, "groq")
@@ -449,6 +501,7 @@ class AppLogic:
             summary=combined_summary,
             duration_seconds=media_duration_seconds,
             source_file=file_path,
+            topics=topic_labels,
         )
         pdf_time = time.perf_counter() - t2
 

@@ -63,7 +63,7 @@ class ActionItemClassifier:
             self.MODE_BALANCED: 0.0,
             self.MODE_HIGH_RECALL: -0.12,
         }
-        self.operating_mode = self.MODE_BALANCED
+        self.operating_mode = self.MODE_HIGH_RECALL
 
         self.vectorizer = HashingVectorizer(
             n_features=vectorizer_n_features,
