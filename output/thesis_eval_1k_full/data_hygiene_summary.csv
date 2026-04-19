@@ -1,0 +1,5 @@
+metric,value
+rows_before_dedup,182251
+rows_after_dedup,62288
+duplicates_removed,119963
+conflict_groups,12

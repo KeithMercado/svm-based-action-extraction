@@ -137,9 +137,10 @@ def run_cross_validation():
     
     scoring = {
         'accuracy': 'accuracy',
-        'precision': make_scorer(precision_score),
-        'recall': make_scorer(recall_score),
-        'f1': make_scorer(f1_score),
+        'precision_macro': make_scorer(precision_score, average='macro', zero_division=0),
+        'recall_macro': make_scorer(recall_score, average='macro', zero_division=0),
+        'f1_macro': make_scorer(f1_score, average='macro', zero_division=0),
+        'recall_action': make_scorer(recall_score, pos_label=1, zero_division=0),
     }
     
     print("\n🧠 Running 5-fold cross-validation...")
@@ -154,7 +155,7 @@ def run_cross_validation():
     print("CROSS-VALIDATION RESULTS (5 Folds)")
     print("=" * 70)
     
-    for metric in ['accuracy', 'precision', 'recall', 'f1']:
+    for metric in ['accuracy', 'precision_macro', 'recall_macro', 'f1_macro', 'recall_action']:
         scores = cv_results[f'test_{metric}']
         print(f"\n{metric.upper()}:")
         for i, score in enumerate(scores):

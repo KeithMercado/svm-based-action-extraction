@@ -89,3 +89,18 @@ IF THE TRAINING IS DONE-
 FIX THE METHODS AND FUNCTIONS OF MAIN.PY
    - clean
    - separate
+
+
+18/04/26
+TODO:
+FINAL ASSESSMENT OF SYSTEM
+ - Whole Walkthrough/Demo of the System
+ - Prepare Script for System and Defense Demo
+ - Choose Between Balanced and High Recall mode
+ - Finalize Charts
+ - Extract Action Items that are not Present in summary
+ - Review Final Ouputs
+ - Generate Atleast 20% of the Unfamiliar Data for the Evaluation
+ - Clean the File Management
+ - Precision and Accuracy for Evaluation
+ - Paper and Presentation (Monday)

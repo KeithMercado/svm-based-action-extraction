@@ -55,6 +55,17 @@ def select_summarization_engine():
     return "groq"
 
 
+def select_model_operating_mode():
+    """Get user's operating mode choice for the classifier."""
+    print("\n Choose Model Operating Mode")
+    print(" (1) Balanced mode (default threshold; fewer false alarms)")
+    print(" (2) High recall mode (lower threshold; catches more actions)")
+    mode_choice = input(" >> Enter 1 or 2: ").strip()
+    if mode_choice == "2":
+        return ActionItemClassifier.MODE_HIGH_RECALL
+    return ActionItemClassifier.MODE_BALANCED
+
+
 def mode_train(classifier, trainer):
     """
     Mode 3: Train the AI model from CSV datasets.
@@ -81,6 +92,11 @@ def mode_live_meeting(
         summarizer: Summarizer instance
         transcription_engine: "local" or "groq"
     """
+    # Select operating mode
+    operating_mode = select_model_operating_mode()
+    classifier.set_operating_mode(operating_mode)
+    print(f"[System] Classifier mode: {operating_mode} (threshold={classifier.get_operating_threshold():.2f})")
+
     print_phase_header(1, "LIVE RECORDING")
 
     # Record audio
@@ -124,6 +140,11 @@ def mode_file_processing(
         summarizer: Summarizer instance
         transcription_engine: "local" or "groq"
     """
+    # Select operating mode
+    operating_mode = select_model_operating_mode()
+    classifier.set_operating_mode(operating_mode)
+    print(f"[System] Classifier mode: {operating_mode} (threshold={classifier.get_operating_threshold():.2f})")
+
     filename = input(" >> Enter file path (.mp4/.mp3/.wav): ").strip().strip('"')
     if not filename:
         print("[Error]: No file path provided.")

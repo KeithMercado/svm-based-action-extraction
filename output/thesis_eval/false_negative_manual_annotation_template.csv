@@ -1,0 +1,2 @@
+sentence,source_file,decision_score,true_label,predicted_label,annotator_category,annotator_notes
+Pakisulat yung mga napag-usapan natin.,ami_multilingual_resistant_dataset.csv,0.011095348348949166,1,0,,
