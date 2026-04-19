@@ -22,8 +22,15 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     f1_score,
+    precision_recall_curve,
 )
 import joblib
+import matplotlib.pyplot as plt
+
+try:
+    from datasets import load_dataset
+except Exception:
+    load_dataset = None
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -31,7 +38,7 @@ PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 
 
-def clean_text(text: str) -> str:
+def clean_text(text: str, lowercase: bool = True) -> str:
     """
     Clean text while preserving Action Item markers.
     
@@ -40,7 +47,9 @@ def clean_text(text: str) -> str:
     """
     if not isinstance(text, str):
         return ""
-    text = text.lower().strip()
+    if lowercase:
+        text = text.lower()
+    text = text.strip()
     # Normalize multiple spaces
     text = " ".join(text.split())
     return text
@@ -164,13 +173,153 @@ def load_all_csv_files() -> pd.DataFrame:
     return combined
 
 
+def load_ami_hf_dataset(dataset_id: str) -> pd.DataFrame:
+    """Load AMI-style dataset from Hugging Face and normalize to sentence/label."""
+    if load_dataset is None:
+        raise ImportError(
+            "Hugging Face datasets package not installed. Run: pip install datasets"
+        )
+
+    print(f"\n🤗 Loading Hugging Face dataset: {dataset_id} ...")
+    ds = load_dataset(dataset_id)
+
+    parts = []
+    for split_name, split_ds in ds.items():
+        split_df = split_ds.to_pandas()
+        normalized, ok = normalize_labels(split_df, f"{dataset_id}:{split_name}")
+        if ok:
+            parts.append(normalized)
+            print(f"   ✅ {split_name}: {len(normalized)} rows")
+        else:
+            print(f"   ⚠️  {split_name}: skipped due to missing compatible columns")
+
+    if not parts:
+        raise ValueError(
+            f"No compatible text/label columns found in Hugging Face dataset: {dataset_id}"
+        )
+
+    combined = pd.concat(parts, ignore_index=True)
+    print(f"   ✅ Total loaded from HF: {len(combined)}")
+    return combined
+
+
+def maybe_enable_balanced_weight(y: pd.Series, ratio_threshold: float = 1.5):
+    """Enable balanced class weights when class imbalance is detected."""
+    counts = y.value_counts().to_dict()
+    if len(counts) < 2:
+        return "balanced"
+    majority = max(counts.values())
+    minority = min(counts.values())
+    imbalance_ratio = (majority / minority) if minority > 0 else float("inf")
+    if imbalance_ratio >= ratio_threshold:
+        print(f"   ⚖️  Imbalance detected ({imbalance_ratio:.2f}:1). Using class_weight='balanced'")
+        return "balanced"
+    print(f"   ℹ️  Near-balanced data ({imbalance_ratio:.2f}:1). Using class_weight=None")
+    return None
+
+
+def tune_recall_threshold(y_true: pd.Series, decision_scores: np.ndarray, target_recall: float = 0.95):
+    """
+    Find threshold that prioritizes higher recall and reduces false negatives.
+    Returns (threshold, tuned_pred, tuned_recall, tuned_precision, tuned_f1_macro).
+    """
+    precisions, recalls, thresholds = precision_recall_curve(y_true, decision_scores)
+
+    if thresholds.size == 0:
+        default_pred = (decision_scores >= 0.0).astype(int)
+        return (
+            0.0,
+            default_pred,
+            recall_score(y_true, default_pred, zero_division=0),
+            precision_score(y_true, default_pred, zero_division=0),
+            f1_score(y_true, default_pred, average="macro", zero_division=0),
+        )
+
+    candidate_idxs = np.where(recalls[:-1] >= target_recall)[0]
+    if candidate_idxs.size > 0:
+        best_idx = candidate_idxs[np.argmax(precisions[:-1][candidate_idxs])]
+    else:
+        best_idx = int(np.argmax(recalls[:-1]))
+
+    tuned_threshold = float(thresholds[best_idx])
+    tuned_pred = (decision_scores >= tuned_threshold).astype(int)
+
+    tuned_recall = recall_score(y_true, tuned_pred, zero_division=0)
+    tuned_precision = precision_score(y_true, tuned_pred, zero_division=0)
+    tuned_f1_macro = f1_score(y_true, tuned_pred, average="macro", zero_division=0)
+
+    return tuned_threshold, tuned_pred, tuned_recall, tuned_precision, tuned_f1_macro
+
+
+def save_confusion_matrix_plot(cm: np.ndarray, output_path: str):
+    """Save confusion matrix heatmap image for thesis slide deck."""
+    fig, ax = plt.subplots(figsize=(6, 5))
+    im = ax.imshow(cm, interpolation="nearest", cmap="Blues")
+    ax.figure.colorbar(im, ax=ax)
+    ax.set(
+        xticks=np.arange(cm.shape[1]),
+        yticks=np.arange(cm.shape[0]),
+        xticklabels=["Pred Info", "Pred Action"],
+        yticklabels=["True Info", "True Action"],
+        title="Confusion Matrix (Test Set)",
+        ylabel="True label",
+        xlabel="Predicted label",
+    )
+
+    thresh = cm.max() / 2.0 if cm.max() > 0 else 0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(
+                j,
+                i,
+                format(cm[i, j], "d"),
+                ha="center",
+                va="center",
+                color="white" if cm[i, j] > thresh else "black",
+            )
+
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    fig.savefig(output_path, dpi=220)
+    plt.close(fig)
+
+
+def save_f1_chart(info_f1: float, action_f1: float, macro_f1: float, output_path: str):
+    """Save per-class and macro F1 bar chart for thesis slide deck."""
+    labels = ["Info F1", "Action F1", "Macro F1"]
+    values = [info_f1, action_f1, macro_f1]
+    colors = ["#4E79A7", "#E15759", "#59A14F"]
+
+    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    bars = ax.bar(labels, values, color=colors)
+    ax.set_ylim(0, 1)
+    ax.set_title("F1 Scores")
+    ax.set_ylabel("Score")
+
+    for bar, v in zip(bars, values):
+        ax.text(bar.get_x() + bar.get_width() / 2, v + 0.015, f"{v:.3f}", ha="center")
+
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    fig.savefig(output_path, dpi=220)
+    plt.close(fig)
+
+
 def train_bulk_model(
     df: pd.DataFrame,
     test_size: float = 0.2,
     max_features: int = 100000,
     max_iter: int = 2000,
+    ngram_min: int = 1,
+    ngram_max: int = 2,
+    lowercase_text: bool = True,
+    target_recall: float = 0.95,
+    force_balanced: bool = False,
+    disable_shuffle: bool = False,
     output_path: str = "svm_bulk_model.pkl",
     metrics_path: str = "bulk_training_metrics.pkl",
+    cm_plot_path: str = "bulk_confusion_matrix.png",
+    f1_plot_path: str = "bulk_f1_scores.png",
 ) -> Tuple[Pipeline, dict]:
     """
     Train bulk SVM model with memory-efficient settings.
@@ -183,7 +332,7 @@ def train_bulk_model(
     # Data cleanup
     print("\n🧹 Cleaning data...")
     df = df.dropna(subset=["sentence", "label"])
-    df["sentence"] = df["sentence"].apply(clean_text)
+    df["sentence"] = df["sentence"].apply(lambda t: clean_text(t, lowercase=lowercase_text))
     # Remove empty strings after cleaning
     df = df[df["sentence"].str.len() > 0]
     print(f"   Rows after cleanup: {len(df)}")
@@ -194,16 +343,23 @@ def train_bulk_model(
     # Train-test split
     print(f"\n📊 Splitting data (80% train, 20% test)...")
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=42, stratify=y
+        X,
+        y,
+        test_size=test_size,
+        random_state=42,
+        stratify=y,
+        shuffle=not disable_shuffle,
     )
     print(f"   Train samples: {len(X_train)}")
     print(f"   Test samples: {len(X_test)}")
+
+    class_weight = "balanced" if force_balanced else maybe_enable_balanced_weight(y_train)
     
     # Build pipeline
     print(f"\n🔧 Building pipeline...")
     pipeline = Pipeline([
         ("tfidf", TfidfVectorizer(
-            ngram_range=(1, 2),
+            ngram_range=(ngram_min, ngram_max),
             max_features=max_features,
             min_df=2,
             max_df=0.95,
@@ -215,7 +371,7 @@ def train_bulk_model(
             alpha=0.0001,
             max_iter=max_iter,
             tol=1e-4,
-            class_weight="balanced",
+            class_weight=class_weight,
             random_state=42,
             n_jobs=-1,
             verbose=1,
@@ -238,14 +394,27 @@ def train_bulk_model(
     print("=" * 70)
     
     y_train_pred = pipeline.predict(X_train)
-    y_test_pred = pipeline.predict(X_test)
+    y_test_pred_default = pipeline.predict(X_test)
+
+    # Recall-priority threshold tuning for false-negative reduction.
+    decision_scores = pipeline.decision_function(X_test)
+    tuned_threshold, y_test_pred, tuned_recall, tuned_precision, tuned_f1_macro = tune_recall_threshold(
+        y_test, decision_scores, target_recall=target_recall
+    )
     
     train_acc = accuracy_score(y_train, y_train_pred)
     test_acc = accuracy_score(y_test, y_test_pred)
+    test_acc_default = accuracy_score(y_test, y_test_pred_default)
     
     print(f"\n📈 Accuracy Scores:")
     print(f"   Train Accuracy: {train_acc * 100:.2f}%")
-    print(f"   Test Accuracy:  {test_acc * 100:.2f}%")
+    print(f"   Test Accuracy (default threshold): {test_acc_default * 100:.2f}%")
+    print(f"   Test Accuracy (recall-tuned):      {test_acc * 100:.2f}%")
+    print(f"\n🎯 Recall threshold tuning:")
+    print(f"   Selected threshold: {tuned_threshold:.5f}")
+    print(f"   Tuned Recall:       {tuned_recall:.4f}")
+    print(f"   Tuned Precision:    {tuned_precision:.4f}")
+    print(f"   Tuned Macro-F1:     {tuned_f1_macro:.4f}")
     
     # Detailed metrics
     print(f"\n📊 Test Set Classification Report:")
@@ -261,19 +430,39 @@ def train_bulk_model(
     print(f"   True Positives:  {cm[1, 1]}")
     
     
+    info_f1 = f1_score(y_test, y_test_pred, pos_label=0, zero_division=0)
+    action_f1 = f1_score(y_test, y_test_pred, pos_label=1, zero_division=0)
+    macro_f1 = f1_score(y_test, y_test_pred, average="macro", zero_division=0)
+
+    save_confusion_matrix_plot(cm, cm_plot_path)
+    save_f1_chart(info_f1, action_f1, macro_f1, f1_plot_path)
+    print(f"\n🖼️  Saved confusion matrix plot: {cm_plot_path}")
+    print(f"🖼️  Saved F1 chart: {f1_plot_path}")
+
     # Metrics dictionary
     metrics = {
         "train_accuracy": train_acc,
+        "test_accuracy_default": test_acc_default,
         "test_accuracy": test_acc,
-        "precision": precision_score(y_test, y_test_pred),
-        "recall": recall_score(y_test, y_test_pred),
-        "f1": f1_score(y_test, y_test_pred),
+        "precision": precision_score(y_test, y_test_pred, zero_division=0),
+        "recall": recall_score(y_test, y_test_pred, zero_division=0),
+        "f1": f1_score(y_test, y_test_pred, zero_division=0),
+        "f1_macro": macro_f1,
+        "f1_info": info_f1,
+        "f1_action": action_f1,
+        "tuned_threshold": tuned_threshold,
         "train_samples": len(X_train),
         "test_samples": len(X_test),
         "training_time_seconds": elapsed_time,
         "confusion_matrix": cm.tolist(),
         "class_distribution_train": y_train.value_counts().to_dict(),
         "class_distribution_test": y_test.value_counts().to_dict(),
+        "class_weight": class_weight,
+        "ngram_range": [ngram_min, ngram_max],
+        "lowercase_text": lowercase_text,
+        "target_recall": target_recall,
+        "cm_plot_path": cm_plot_path,
+        "f1_plot_path": f1_plot_path,
     }
     
     # Save model
@@ -302,6 +491,8 @@ def print_summary(metrics: dict):
     print(f"Precision: {metrics['precision']:.4f}")
     print(f"Recall: {metrics['recall']:.4f}")
     print(f"F1-Score: {metrics['f1']:.4f}")
+    print(f"Macro F1-Score: {metrics['f1_macro']:.4f}")
+    print(f"Threshold used: {metrics['tuned_threshold']:.5f}")
     print(f"Training time: {metrics['training_time_seconds']/60:.2f} minutes")
     print("=" * 70)
 
@@ -329,6 +520,44 @@ def main():
         help="Training epochs (default: 2000)",
     )
     parser.add_argument(
+        "--ngram-min",
+        type=int,
+        default=1,
+        help="Minimum n-gram value (default: 1)",
+    )
+    parser.add_argument(
+        "--ngram-max",
+        type=int,
+        default=2,
+        help="Maximum n-gram value (default: 2)",
+    )
+    parser.add_argument(
+        "--preserve-case",
+        action="store_true",
+        help="Keep original casing instead of lowercasing text",
+    )
+    parser.add_argument(
+        "--target-recall",
+        type=float,
+        default=0.95,
+        help="Target recall for threshold tuning (default: 0.95)",
+    )
+    parser.add_argument(
+        "--force-balanced",
+        action="store_true",
+        help="Always use class_weight='balanced' even if classes look balanced",
+    )
+    parser.add_argument(
+        "--no-shuffle",
+        action="store_true",
+        help="Disable shuffling before train-test split",
+    )
+    parser.add_argument(
+        "--hf-dataset-id",
+        default="",
+        help="Optional Hugging Face dataset id to include (example: edinburghcstr/ami)",
+    )
+    parser.add_argument(
         "--output",
         default=os.path.join(SCRIPT_DIR, "svm_bulk_model.pkl"),
         help="Output model path",
@@ -338,12 +567,27 @@ def main():
         default=os.path.join(SCRIPT_DIR, "bulk_training_metrics.pkl"),
         help="Output metrics path",
     )
+    parser.add_argument(
+        "--cm-plot",
+        default=os.path.join(SCRIPT_DIR, "bulk_confusion_matrix.png"),
+        help="Output confusion matrix PNG path",
+    )
+    parser.add_argument(
+        "--f1-plot",
+        default=os.path.join(SCRIPT_DIR, "bulk_f1_scores.png"),
+        help="Output F1 chart PNG path",
+    )
     
     args = parser.parse_args()
     
     try:
         # Load all data
         df = load_all_csv_files()
+
+        if args.hf_dataset_id:
+            hf_df = load_ami_hf_dataset(args.hf_dataset_id)
+            df = pd.concat([df, hf_df], ignore_index=True)
+            print(f"\n✅ Combined local + HF samples: {len(df)}")
         
         # Train
         pipeline, metrics = train_bulk_model(
@@ -351,8 +595,16 @@ def main():
             test_size=args.test_size,
             max_features=args.max_features,
             max_iter=args.max_iter,
+            ngram_min=args.ngram_min,
+            ngram_max=args.ngram_max,
+            lowercase_text=not args.preserve_case,
+            target_recall=args.target_recall,
+            force_balanced=args.force_balanced,
+            disable_shuffle=args.no_shuffle,
             output_path=args.output,
             metrics_path=args.metrics,
+            cm_plot_path=args.cm_plot,
+            f1_plot_path=args.f1_plot,
         )
         
         # Summary

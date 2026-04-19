@@ -29,6 +29,10 @@ except Exception:  # pragma: no cover - optional dependency
 class ActionItemClassifier:
     """Classifies text as action items or information items using an incremental SVM."""
 
+    # Operating mode constants for threshold-based inference
+    MODE_BALANCED = "balanced"
+    MODE_HIGH_RECALL = "high_recall"
+
     def __init__(
         self,
         model_path="svm_model.pkl",
@@ -55,6 +59,11 @@ class ActionItemClassifier:
         )
         self.model_llama_available = GROQ_AVAILABLE
         self.nlp = spacy.load("en_core_web_sm")
+        self.mode_thresholds = {
+            self.MODE_BALANCED: 0.0,
+            self.MODE_HIGH_RECALL: -0.12,
+        }
+        self.operating_mode = self.MODE_BALANCED
 
         self.vectorizer = HashingVectorizer(
             n_features=vectorizer_n_features,
@@ -103,6 +112,19 @@ class ActionItemClassifier:
         confidence = self._sigmoid(abs(margin_value))
         return prediction, confidence, margin_value
 
+    def set_operating_mode(self, mode):
+        """Set the classification operating mode used for inference decisions."""
+        normalized = str(mode).strip().lower()
+        if normalized not in self.mode_thresholds:
+            raise ValueError(
+                f"Invalid operating mode: {mode}. Expected one of: {', '.join(self.mode_thresholds.keys())}"
+            )
+        self.operating_mode = normalized
+
+    def get_operating_threshold(self):
+        """Return the active decision threshold for the current operating mode."""
+        return float(self.mode_thresholds.get(self.operating_mode, 0.0))
+
     def _normalize_label(self, label_text):
         """Normalize label text into 0/1."""
         if label_text is None:
@@ -138,12 +160,60 @@ class ActionItemClassifier:
             return None
 
     def _split_sentences(self, raw_text):
-        """Split transcript into lightweight sentence-like units."""
-        return [
-            sentence.strip()
-            for sentence in raw_text.replace("so ", ". ").split(".")
-            if len(sentence.strip()) > 5
-        ]
+        """Split transcript into coherent sentence-like units without fragmenting clauses."""
+        if not raw_text:
+            return []
+
+        normalized = re.sub(r"\s+", " ", str(raw_text)).strip()
+        if not normalized:
+            return []
+
+        # Prefer spaCy boundaries; they are safer than raw period splitting.
+        doc = self.nlp(normalized)
+        candidates = [sent.text.strip(" \t\r\n.,;:") for sent in doc.sents if sent.text.strip()]
+        if not candidates:
+            candidates = [s.strip(" \t\r\n.,;:") for s in re.split(r"[.!?]+", normalized) if s.strip()]
+
+        merged = []
+        dangling_starts = (
+            "to ",
+            "and ",
+            "but ",
+            "or ",
+            "so ",
+            "because ",
+            "that ",
+            "which ",
+            "with ",
+            "for ",
+            "as ",
+            "if ",
+        )
+
+        for chunk in candidates:
+            sentence = chunk.strip()
+            if not sentence:
+                continue
+
+            lower_sentence = sentence.lower()
+            if merged:
+                previous = merged[-1]
+                previous_lower = previous.lower()
+
+                # Re-attach obvious tails caused by abbreviations/time notation (e.g., "2 p." + "to help...").
+                previous_ends_abbrev = bool(re.search(r"\b(?:[ap]|[ap]m|mr|mrs|ms|dr|prof)\.?$", previous_lower))
+                previous_time_stub = bool(re.search(r"\b\d{1,2}\s*[ap]$", previous_lower))
+                looks_dangling = lower_sentence.startswith(dangling_starts)
+                starts_lower = sentence[:1].islower()
+                very_short_tail = len(sentence.split()) <= 4
+
+                if previous_ends_abbrev or previous_time_stub or looks_dangling or (starts_lower and very_short_tail):
+                    merged[-1] = f"{previous} {sentence}".strip()
+                    continue
+
+            merged.append(sentence)
+
+        return [sentence for sentence in merged if len(sentence) > 5]
 
     def _looks_like_specific_task(self, sentence):
         """Detect whether a sentence is a concrete assigned task with ownership or timing."""
@@ -374,11 +444,15 @@ class ActionItemClassifier:
     def predict_with_confidence(self, sentence):
         """Return the student prediction, confidence, and raw score."""
         features = self.get_features(sentence)
-        prediction, confidence, raw_score = self._decision_to_confidence(features)
+        _, confidence, raw_score = self._decision_to_confidence(features)
+        threshold = self.get_operating_threshold()
+        prediction = 1 if raw_score >= threshold else 0
         return {
             "label": int(prediction),
             "confidence": float(confidence),
             "score": float(raw_score),
+            "threshold": float(threshold),
+            "operating_mode": self.operating_mode,
         }
 
     def predict(self, sentence):
@@ -691,5 +765,7 @@ class ActionItemClassifier:
             "model_classes": self.clf.classes_.tolist() if hasattr(self.clf, "classes_") else None,
             "vectorizer_features": self.vectorizer.n_features,
             "confidence_threshold": self.confidence_threshold,
+            "operating_mode": self.operating_mode,
+            "operating_threshold": self.get_operating_threshold(),
             "model_llama_name": self.model_llama_name,
         }

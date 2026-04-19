@@ -473,7 +473,6 @@ class AppLogic:
     def _start_live_recording(self):
         self.audio.start_stream(live_transcription=True, live_transcriber=self._groq_live_transcribe)
         self.view.is_recording = True
-        self.view.update_mic_button(self.audio.mic_is_muted)
         self._ensure_transcript_ready()
         self.view.status_indicator.configure(text="● RECORDING (GROQ)", text_color="#ff4b4b")
         self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
@@ -495,7 +494,6 @@ class AppLogic:
             continue_timing=True,
         )
         self.view.is_recording = True
-        self.view.update_mic_button(self.audio.mic_is_muted)
         self.view.status_indicator.configure(text="● RECORDING (GROQ)", text_color="#ff4b4b")
         self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
         self._append_system_text("Resumed recording.")
@@ -567,7 +565,7 @@ class AppLogic:
         except Exception as e:
             # If it fails, show the error in the box
             self.view.transcript_box.configure(state="normal")
-            if not self.view.transcript_box.winfo_manager():
+            if not self.view.transcript_box.winfo_managed():
                 self.view.transcript_box.pack(fill="both", expand=True)
             self.view.transcript_box.insert("end", f"\n[Error]: {e}\n")
             self.view.transcript_box.configure(state="disabled")
@@ -617,7 +615,6 @@ class AppLogic:
         """Pauses recording, then asks whether to generate PDF or continue recording."""
         self.audio.stop_stream(save=False)
         self.view.is_recording = False
-        self.view.update_mic_button(self.audio.mic_is_muted)
 
         buffered_audio_exists = bool(getattr(self.audio, "all_audio_data", []))
         if not buffered_audio_exists:
@@ -629,16 +626,6 @@ class AppLogic:
 
         self.view.status_indicator.configure(text="● PAUSED", text_color="#d9a23b")
         self.view.show_recording_prompt(self._handle_recording_prompt_decision)
-
-    def handle_toggle_mic(self):
-        """Toggles live microphone contribution while keeping system audio capture active."""
-        new_status = not self.audio.mic_is_muted
-        self.audio.toggle_mic(new_status)
-        self.view.update_mic_button(new_status)
-
-        if self.view.is_recording:
-            state_text = "muted" if new_status else "live"
-            self._append_system_text(f"Microphone is now {state_text}.")
 
     def handle_export(self, export_type):
         """Handles PDF generation and Media folder access."""
@@ -656,6 +643,12 @@ class AppLogic:
         
         # Hide the pop-up menu
         self.view.toggle_pop_menu()
+
+    def handle_toggle_mic(self):
+        """Toggles the microphone mute state."""
+        new_mute_state = not self.audio.mic_is_muted
+        self.audio.toggle_mic(new_mute_state)
+        self.view.update_mic_button(new_mute_state)
 
     def update_volume_loop(self):
         """Syncs the GUI visualizer data with the AudioHandler volume levels."""

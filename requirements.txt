@@ -11,3 +11,5 @@ pandas
 groq
 python-dotenv
 reportlab
+matplotlib
+datasets
