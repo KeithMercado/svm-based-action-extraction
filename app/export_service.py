@@ -326,7 +326,7 @@ class ExportService:
                     story.append(Paragraph(f"<b>{idx}.</b> {escape(clean_topic)}", report_styles["body"]))
             story.append(Spacer(1, 0.1 * inch))
 
-        story.append(Paragraph("Action Items (Llama Classification)", report_styles["heading"]))
+        story.append(Paragraph("Action Items", report_styles["heading"]))
         items = self.formatter.extract_llama_action_items(summary or "")
         if items:
             for item in items:
@@ -341,7 +341,7 @@ class ExportService:
                     )
                 )
         else:
-            story.append(Paragraph("<i>No action items were identified by Llama in the generated summary.</i>", report_styles["body"]))
+            story.append(Paragraph("<i>No action items were identified in the generated summary.</i>", report_styles["body"]))
 
         # Optional section for future use:
         story.append(Spacer(1, 0.14 * inch))
