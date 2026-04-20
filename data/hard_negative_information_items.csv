@@ -1,0 +1,75 @@
+sentence,label
+thank you,information_item
+thanks,information_item
+thanks everyone,information_item
+thank you everyone,information_item
+thank you all,information_item
+thank you for joining,information_item
+thank you for your time,information_item
+thank you so much,information_item
+appreciate it,information_item
+appreciate the update,information_item
+noted,information_item
+noted with thanks,information_item
+received,information_item
+received with thanks,information_item
+copy that,information_item
+got it,information_item
+roger that,information_item
+okay noted,information_item
+understood,information_item
+acknowledged,information_item
+message received,information_item
+good morning everyone,information_item
+good afternoon everyone,information_item
+good evening everyone,information_item
+welcome everyone,information_item
+please take note,information_item
+for your information,information_item
+fyi,information_item
+just sharing this update,information_item
+this is for reference only,information_item
+sharing the current status,information_item
+the team discussed the timeline,information_item
+the group reviewed the proposal,information_item
+the client prefers the earlier schedule,information_item
+the issue came from the delayed approval,information_item
+we are still waiting for confirmation,information_item
+there is no final decision yet,information_item
+the plan remains unchanged,information_item
+the budget is still under review,information_item
+the report has already been circulated,information_item
+the document is attached for review,information_item
+the discussion focused on the rollout plan,information_item
+the meeting covered the project scope,information_item
+we talked about the next steps,information_item
+we discussed the risks,information_item
+we reviewed the draft,information_item
+we discussed the schedule,information_item
+we discussed the background,information_item
+we discussed the results,information_item
+the status remains the same,information_item
+no further updates from the team,information_item
+nothing else to add,information_item
+no action needed at this time,information_item
+the item is for discussion only,information_item
+this is just an update,information_item
+this is only an overview,information_item
+just a quick note,information_item
+just a reminder,information_item
+sharing some context,information_item
+please see the attached file,information_item
+please see the update below,information_item
+please refer to the report,information_item
+please check the latest summary,information_item
+please note the changes,information_item
+please be informed,information_item
+let's move to the next topic,information_item
+let's proceed to the next agenda item,information_item
+moving on to the next section,information_item
+closing the discussion here,information_item
+that is all from my side,information_item
+that's all for now,information_item
+no questions from my side,information_item
+no additional comments,information_item
+the meeting is adjourned,information_item
