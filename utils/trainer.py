@@ -36,14 +36,15 @@ class ModelTrainer:
                 df.columns = [c.lower().strip() for c in df.columns]
 
                 # Check if required columns exist after cleaning
-                if "text" not in df.columns or "label" not in df.columns:
-                    print(f"[Error] {path} is missing 'text' or 'label' columns.")
+                if "label" not in df.columns or ("text" not in df.columns and "sentence" not in df.columns):
+                    print(f"[Error] {path} is missing 'text'/'sentence' or 'label' columns.")
                     print(f"Actual columns found: {df.columns.tolist()}")
                     continue  # Skip this file and move to the next
 
                 # Clean data: Remove empty rows
-                df = df.dropna(subset=["text", "label"])
-                texts = df["text"].astype(str).tolist()  # Ensure everything is a string
+                text_col = "text" if "text" in df.columns else "sentence"
+                df = df.dropna(subset=[text_col, "label"])
+                texts = df[text_col].astype(str).tolist()  # Ensure everything is a string
                 labels = [
                     1 if "action" in str(l).lower() else 0
                     for l in df["label"].tolist()
@@ -130,6 +131,8 @@ class ModelTrainer:
             "data/meeting_specific_dataset_15k.csv",
             "data/comprehensive_thesis_dataset_12k.csv",
             "data/ami_multilingual_balanced.csv",
+            "data/hard_negative_information_items.csv",
+            "data/hard_negative_information_items_20000.csv",
         ]
 
         # Add user corrections if they exist

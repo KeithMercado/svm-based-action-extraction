@@ -78,6 +78,54 @@ class AppLogic:
     def _get_features(self, sentence):
         return self.vectorizer.transform([sentence])
 
+    def _looks_like_information_override(self, sentence):
+        normalized = re.sub(r"\s+", " ", str(sentence or "")).strip().lower().rstrip(".?!,")
+        if not normalized:
+            return False
+
+        info_patterns = [
+            r"^thank you(?: so much)?$",
+            r"^thanks(?: everyone| all)?$",
+            r"^appreciate it$",
+            r"^noted$",
+            r"^received(?: with thanks)?$",
+            r"^copy that$",
+            r"^got it$",
+            r"^roger that$",
+            r"^understood$",
+            r"^acknowledged$",
+            r"^good (?:morning|afternoon|evening)(?: everyone)?$",
+            r"^welcome(?: everyone)?$",
+            r"^fyi$",
+            r"^for your information$",
+            r"^no further updates from the team$",
+            r"^nothing else to add$",
+        ]
+
+        task_markers = [
+            r"\bplease\b",
+            r"\bneed(s)? to\b",
+            r"\bshould\b",
+            r"\bmust\b",
+            r"\bwill\b",
+            r"\bcan you\b",
+            r"\bcould you\b",
+            r"\bfollow up\b",
+            r"\bsend\b",
+            r"\bprepare\b",
+            r"\breview\b",
+            r"\bupdate\b",
+            r"\bcomplete\b",
+        ]
+
+        if len(normalized.split()) > 12:
+            return False
+
+        if any(re.search(pattern, normalized) for pattern in task_markers):
+            return False
+
+        return any(re.fullmatch(pattern, normalized) for pattern in info_patterns)
+
     def _load_local_bart(self):
         if self.local_bart is not None:
             return self.local_bart
@@ -475,7 +523,10 @@ class AppLogic:
             sentences = [s.strip() for s in segment_text.split(".") if s.strip()]
             for sentence in sentences:
                 if sentence:
-                    prediction = self.classifier.predict(self._get_features(sentence))[0]
+                    if self._looks_like_information_override(sentence):
+                        prediction = 0
+                    else:
+                        prediction = self.classifier.predict(self._get_features(sentence))[0]
                     if prediction == 1:
                         action_items.append(sentence)
         

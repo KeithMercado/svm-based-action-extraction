@@ -59,6 +59,24 @@ class ActionItemClassifier:
         )
         self.model_llama_available = GROQ_AVAILABLE
         self.nlp = spacy.load("en_core_web_sm")
+        self.information_override_patterns = [
+            r"^thank you(?: so much)?$",
+            r"^thanks(?: everyone| all)?$",
+            r"^appreciate it$",
+            r"^noted$",
+            r"^received(?: with thanks)?$",
+            r"^copy that$",
+            r"^got it$",
+            r"^roger that$",
+            r"^understood$",
+            r"^acknowledged$",
+            r"^good (?:morning|afternoon|evening)(?: everyone)?$",
+            r"^welcome(?: everyone)?$",
+            r"^fyi$",
+            r"^for your information$",
+            r"^no further updates from the team$",
+            r"^nothing else to add$",
+        ]
         self.mode_thresholds = {
             self.MODE_BALANCED: 0.0,
             self.MODE_HIGH_RECALL: -0.12,
@@ -441,8 +459,31 @@ class ActionItemClassifier:
         """Return the vectorized representation of a sentence."""
         return self.vectorizer.transform([sentence])
 
+    def _looks_like_information_override(self, sentence):
+        """Force common acknowledgements and courtesy phrases into the information class."""
+        normalized = re.sub(r"\s+", " ", str(sentence or "")).strip().lower().rstrip(".?!,")
+        if not normalized:
+            return False
+
+        if self._looks_like_specific_task(normalized):
+            return False
+
+        if len(normalized.split()) > 12:
+            return False
+
+        return any(re.fullmatch(pattern, normalized) for pattern in self.information_override_patterns)
+
     def predict_with_confidence(self, sentence):
         """Return the student prediction, confidence, and raw score."""
+        if self._looks_like_information_override(sentence):
+            return {
+                "label": 0,
+                "confidence": 1.0,
+                "score": -1.0,
+                "threshold": float(self.get_operating_threshold()),
+                "operating_mode": self.operating_mode,
+            }
+
         features = self.get_features(sentence)
         _, confidence, raw_score = self._decision_to_confidence(features)
         threshold = self.get_operating_threshold()
