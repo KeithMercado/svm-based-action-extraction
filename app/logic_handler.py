@@ -527,7 +527,7 @@ class AppLogic:
         self.audio.start_stream(live_transcription=True, live_transcriber=self._groq_live_transcribe)
         self.view.is_recording = True
         self._ensure_transcript_ready()
-        self.view.status_indicator.configure(text="● RECORDING (GROQ)", text_color="#ff4b4b")
+        self.view.status_indicator.configure(text="● RECORDING", text_color="#ff4b4b")
         self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
         self.view.transcript_box.configure(state="normal")
         self.view.transcript_box.delete("0.0", "end")
@@ -547,7 +547,7 @@ class AppLogic:
             continue_timing=True,
         )
         self.view.is_recording = True
-        self.view.status_indicator.configure(text="● RECORDING (GROQ)", text_color="#ff4b4b")
+        self.view.status_indicator.configure(text="● RECORDING", text_color="#ff4b4b")
         self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
         self._append_system_text("Resumed recording.")
         self.update_timer_loop(self.audio.start_time)

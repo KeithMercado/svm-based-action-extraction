@@ -1,0 +1,675 @@
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Interpretable Action-Item Detection in Long Meeting Transcripts Using Linear SVM 
+and Linguistic Feature Modeling 
+ 
+Venus Ruselle B. Daanoy 
+College of Informatics and Computing Studies, New Era University, venusruselle.daanoy@neu.edu.ph 
+John Keith S. Mercado 
+College of Informatics and Computing Studies, New Era University, johnkeith.mercado@neu.edu.ph 
+ 
+ABSTRACT 
+The rapid shift toward hybrid work environments has intensified the challenge of "information overload," particularly in gene rating 
+accurate Minutes of the Meeting (MoM) for multilingual dialogues. In the Philippine context, the prevalence of code-switching (Taglish) 
+in professional and academic settings presents a significant barrier for standard Natural Language Processing (NLP) models, which often 
+lack the transparency required for critical task tracking. This study presents a high -precision action item extraction system utilizing a 
+Linear Support Vector Machine (SVM) framework. To address the linguistic complexity of Filipino -English discourse, we developed a 
+massive, diverse corpus consisting of 180,000 samples spanning business, healthcare, education, and legal domains. 
+Our methodology employs Feature Hashing for 210 vector mapping and a Stochastic Gradient Descent (SGD) training approach to ensure 
+scalability and model interpretability. Experimental results demonstrate that the linear decision function effectively identi fies linguistic 
+markers unique to Taglish impera tives (e.g., "paki-send" or "need to finish" ), achieving robust F1 -scores across all four domains. A 
+comparative analysis reveals that increasing the data scale from 10k to 180k significantly stabilizes precision, providing a transparent 
+alternative to "black-box" deep learning models. This research  concludes that a well -optimized Linear SVM, paired with a large -scale 
+multilingual dataset, offers an efficient and interpretable solution for automated meeting documentation in code-switching environments. 
+CCS CONCEPTS • Computing Methodologies – Supervised learning by classification: Support vector machine • Computing 
+Methodologies – Natural language processing: Information extraction; • Information Systems- Document summarization. 
+Additional Keywords and Phrases: Action Item Extraction, Taglish NLP, Linear SVM, Feature Engineering, Minutes of the Meeting, 
+Multilingual Text Classification..  
+1 INTRODUCTION 
+The rapid transition to hybrid and remote work environments has led to a significant increase in the volume of digital 
+meetings conducted across various sectors, including business, academia, and healthcare. While video conferencing tools 
+provide accessibility, they also generate a massive amount of unstructured conversational data. Distilling these long-form 
+
+2 
+transcripts into concise, actionable "Minutes of the Meeting" (MoM) remains a labor-intensive task that is prone to human 
+error and information loss. 
+A critical component of effective meeting summarization is Action-Item Detection—the process of identifying specific 
+tasks, assignments, or commitments made during a discussion. However, automating this process presents two primary 
+challenges. First, existing Natural Language Processing (NLP) models often struggle with "Taglish," a common linguistic 
+phenomenon in the Philippines where English and Tagalog are used interchangeably. Second, many modern "black -box" 
+architectures, such as deep neural networks, lack the interpretability required for users to understand the logic behind task 
+extraction. 
+This study addresses these challenges by proposing an interpretable action-item detection system using a Linear Support 
+Vector Machine (SVM). By leveraging Linguistic Feature Modeling (LFM), the system identifies imperative constructs 
+and domain-specific markers without the heavy computational requirements of transformer -based models. To ensure the 
+model’s robustness across diverse professional fields, we utilize an expanded corpus of over 180,000 samples, covering 
+specialized sectors such as Legal, Engineering, and Healthcare. This research aims to provide a high-precision, transparent, 
+and scalable framework for automated task management in linguistically diverse environments. 
+1.1 Background of Study 
+In professional and organizational settings, meetings serve as a central mechanism for communication, collaboration, and 
+decision-making. They are critical for assigning tasks, discussing project directions, and resolving issues. However, long 
+and unstructured meeting transcripts—particularly in hybrid and remote work environments—pose challenges in tracking 
+important information, especially action items. These action items, which often represent assigned tasks or decisions 
+requiring follow -up, are frequent ly buried within lengthy dialogues, making them difficult to identify and retrieve 
+efficiently without automated support. 
+To address this, the field of natural language processing (NLP) has explored various techniques for meeting 
+summarization and action -item detection. Many early systems have focused on abstractive or extractive summarization, 
+aiming to condense key points of a meeting transcript. However, summarization alone does not suffice when the goal is to 
+isolate action-oriented utterances. Thus, action-item detection has emerged as a specialized task within the broader field of 
+dialogue understanding. 
+Recent advancements in NLP, particularly transformer -based models such as BERT and its derivatives, have 
+significantly improved performance in text classification and summarization tasks. For example, Golia and Kalita (2024) 
+employed a hybrid extractive-abstractive summarization pipeline using BERTScore to identify action points in meetings 
+with high accuracy. However, these models are computationally intensive, less interpretable, and often require fine-tuning 
+with large, domain -specific datasets —limitations that make them less practical for low -resource environments or for 
+deployment in real-time systems. 
+Further, the work by Kiminos and Daskalaki (2020) compared Naïve Bayes and SVMs for classifying useful 
+information in business meetings and found that SVMs offered better precision for decision and task -related utterances, 
+particularly when feature enginee ring emphasized domain -relevant keywords, modal verbs, and syntactic patterns 
+(Kiminos & Daskalaki, 2020 ). This affirms the potential of combining domain -specific linguistic features with classical 
+models to develop efficient, interpretable, and scalable systems for action -item detection. Moreover, the IEEE study by 
+Xie et al. (2023) on regularized context m odeling provided further support for leveraging structured context and lexical 
+semantics in classical ML pipelines, improving generalizability across meetings with varied formats (Xie et al., 2023). 
+
+3 
+Building upon this, the current study seeks to apply Linear SVM modeling integrated with engineered linguistic features 
+to detect action items in long meeting transcripts. Rather than relying solely on deep contextual embeddings, this approach 
+emphasizes syntactic and semantic cues found in real human dialogue, such as imperative phrasing, modals (e.g., “should”, 
+“need to”), named entity references, and discourse markers. This not only enhances transparency and interpretability but 
+also allows for greater control over model behavior in culturally nuanced scenarios. 
+The study further emphasizes local adaptation by integrating the AMI Meeting Corpus, a well-established multilingual 
+meeting dataset, and the i -TANONG dataset, which includes authentic Philippine -based meeting dialogues in English, 
+Tagalog, and Cebuano. This combination enables the system to generalize well across varied linguistic environments while 
+ensuring relevance to hybrid work settings in the Philippines —where code-switching, politeness strategies, and indirect 
+speech are more prevalent. 
+By focusing on action -item detection rather than full summarization, this research directly targets usability and 
+workflow integration in task management systems, project collaboration tools, and productivity software used by Filipino 
+professionals. It also lays the groundwork for extending such systems to other regional languages and settings, promoting 
+inclusivity in NLP applications. 
+1.2 Statement of the Problem 
+In the shift toward remote and hybrid work, organizations have become heavily reliant on digital meetings. While this 
+ensures continuity, it has resulted in an overwhelming number of long -form transcripts that are difficult to manage. Most 
+actionable tasks and decisions are buried within hours of dialogue, leading to “information overload” and missed deadlines. 
+Existing Natural Language Processing (NLP) solutions often struggle with the informal nature of spoken conversation and 
+the high computational cost of transformer models. Furthermore, most systems are optimized for Western discourse, failing 
+to capture the unique code-switching and politeness strategies used by Filipino professionals. Specifically, this study will 
+seek to answer the following questions: 
+1. How will the integration of linguistic feature modeling (e.g., modal verbs, dependency relations, and discourse 
+markers) improve the detection accuracy of action items in long meeting transcripts compared to baseline models? 
+2. What is the benefit of using a Linear SVM model over deep learning "black -box" architectures in terms of model 
+interpretability for researchers and meeting participants? 
+3. How effective is the system in a localized context, specifically in identifying action items that involve Taglish 
+(Tagalog-English) code-switching and Filipino-specific politeness markers (e.g., "paki," "po")? 
+4. How efficient is the proposed Action-Item Detection System in terms of: 
+a. Precision and Recall: Its ability to correctly identify tasks without flagging general conversation. 
+b. Interpretability: The clarity of "why" a sentence was classified as an action item. 
+c. Generalizability: Its performance across different datasets (AMI vs. i-TANONG). 
+d. Contextual Clarity: The readability of the final summarized action items. 
+1.3 Objectives 
+The Interpretable Action-Item Detection system aims to attain the following objectives: 
+
+4 
+1.3.1 Main Objectives 
+The main objective is to develop an action-item detection system for long meeting transcripts using a linear Support Vector 
+Machine (SVM) model, while adding linguistic and contextual features, aiming to accurately identify actionable statements 
+and enhance usability in terms of contexts of hybrid work in the Philippines. 
+1.3.2 Specific Objectives: 
+1. To preprocess long -form meeting transcripts from both the AMI Corpus and i -TANONG datasets by applying 
+cleaning techniques such as text normalization, speaker turn segmentation, and sentence-level structuring, in order 
+to prepare consistent and high-quality inputs for action-item detection. 
+2. To extract and model linguistically relevant features, including dependency relations, discourse markers, sentence 
+position, and verb modality, which could provide insight into action item identification from most party 
+conversations. 
+3. To develop and train a Linear Support Vector Machine (SVM) classifier using the linguistically relevant features 
+created and optimize the parameters of the model utilizing cross-validation to attain maximum precision and recall 
+without deteriorating model interpretability. 
+4. To evaluate the trained model’s effectiveness in detecting action items using standard performance metrics across 
+both the AMI and i -TANONG datasets, while focusing on evaluating the models performance in a culturally 
+localized Filipino meeting setting. 
+5. To integrate the trained linear SVM model into a fully functional action -item detection system that could process 
+long meeting transcripts and produce role-agnostic predictions, and display extracted action items in an organized 
+format that is ready for pr actical use in hybrid work contexts suitable for practical deployment in hybrid work 
+settings. 
+2 SCOPE AND LIMITATIONS 
+The primary focus of this research is the development of an interpretable action -item detection system and a minutes -of-
+the-meeting generator tailored for long, unstructured meeting transcripts using a Linear Support Vector Machine (SVM). 
+The system utilizes Linguistic Feature Modeling, targeting imperative verbs, modals, and discourse markers, to identify 
+actionable tasks within long transcripts. Training and evaluation are conducted using the AMI Meeting Corpus and the i-
+TANONG dataset, specifically covering English and Tagalog within the Philippine hybrid work context. The final output 
+is a structured Minutes of the Meeting (MoM) report containing extracted tasks, assignees, and deadlines. 
+Conversely, certain boundaries and constraints are recognized in this study. The research is delimited to text -based 
+analysis; thus, it does not include the development of a Speech -to-Text (STT) engine and relies on the assumption that 
+input transcripts are of sufficient quality. Furthermore, the system focuses on extractive summarization techniques for the 
+generation of meeting minutes, meaning it will not perform abstractive summarization or paraphrase dialogues into new 
+text. In terms of linguistic cover age, while the study includes major Philippine languages, it does not account for other 
+regional dialects or highly specialized technical jargon outside the scope of the provided datasets. Methodologically, as the 
+study utilizes a Linear SVM rather than deep learning architectures like Transformers, the system may face limitations in 
+capturing long-range contextual dependencies that span across distant parts of a long transcript. Finally, the system is 
+designed for asynchronous processing of completed transcripts rather than real-time, live-streamed action-item detection 
+
+5 
+3  RELATED WORK 
+The automated analysis of meeting transcripts has seen significant growth with the rise of remote collaboration. This 
+section reviews the evolution of action -item detection and summarization, specifically focusing on the transition from 
+traditional linguis tic models to machine learning approaches, and the unique challenges posed by multilingual 
+environments. 
+3.1 Automatic Text Summarization 
+Automatic text summarization (ATS) aims to distill documents into shorter versions while keeping the key information 
+and maintaining the same meaning. Critical reviews of the current state of ATS research identify two main approaches to 
+summarization, extractive (taking the salient sentences) and abstractive (generate summaries that paraphrase). Widyassari 
+et al. (2022) provide a review of over 85 methods for ATS from 2008-2019. The authors conclude there's solid performance 
+on very short texts; however, many of those methods were unable to maintain contextual coherence or factual consistencies 
+with longer, conversational data. 
+A broader view of summarization methodologies is offered by Yadav et al. (2022), who conducted a systematic meta -
+analysis on both extractive and abstractive summarization techniques. Their study categorizes various models based on 
+preprocessing strategies, text representations, and evaluation metrics. Extractive methods, which select existing sentences 
+from a source text, are noted for their efficiency, while abstractive techniques generate novel phrases and require deeper 
+semantic understanding.  
+Patel and Pareek (2021) provide a comprehensive overview of the evolution, advancements, and remaining challenges 
+in automatic text summarization, with particular emphasis on deep learning –based methods. Their study charts the 
+transition from statistical and rule-based systems to neural networks, such as sequence-to-sequence models and transformer 
+architectures. A key issue identified is factual consistency, wherein abstractive models may hallucinate or generate 
+incorrect content. Scalability and generalization across domains also remain pressing concerns.  
+Finally, Zhang et al. (2020) reconceptualize extractive summarization as a text matching task, where candidate 
+sentences are aligned against a semantic representation of the source document. By reframing the summarization process 
+in this retrieval-like structure, their approach leverages neural matching architectures that improve the selection of relevant 
+and salient sentences. This shift toward sentence-level matching helps mitigate common limitations of traditional extractive 
+systems, such as inclusion of non-essential or off-topic content. In the context of meetings, where actionable insights are 
+often dispersed across varied dialogue turns, such matching -based strategies could enhance the focus and precision of 
+automated summaries. 
+3.2 Action-Item Detection with Feature Engineering & SVM 
+Action-item detection has become an essential task in automatic meeting analysis, as it allows systems to identify and 
+extract actionable outcomes from conversational transcripts. Stojanovic et al. (2023) introduced an approach that leverages 
+regularized context modeling to detect meeting action items from transcripts, emphasizing the importance of contextual 
+features such as nearby dialogue acts and sentence types. Their model integrates handcrafted features with Support Vector 
+Machines (SVMs), showing tha t the inclusion of regularized context windows significantly boosts the performance of 
+traditional machine learning models. 
+Gishamer et al. (2023) explored action item detection within multiparty conversational speech by analyzing meeting 
+transcripts through a system that integrates domain -specific features. The researchers emphasized the challenges of 
+
+6 
+overlapping speech, ambiguous action phrasing, and varied speaker intents, and addressed them through an enriched feature 
+set and fine-tuned SVM decision boundaries.  
+Kiminos et al. (2020) conducted a comparative study between Naïve Bayes and Support Vector Machines for 
+classifying decisions in business meeting transcripts. Although both models aimed at identifying meaningful segments 
+such as decisions and tasks, SVM demonstrated superior performance due to its ability to model high-dimensional feature 
+spaces and handle sparse data. Their feature engineering pipeline included term frequency -inverse document frequency 
+(TF-IDF), cue phrases, and syntactic structures, which significantly improved the precision of action item detection.  
+In broader research related to conversational structure recognition, Li et al. (2021) examined the role of punctuation, 
+labels, and context in helping transformers and other models identify dialogue acts. While their focus was not directly on 
+SVMs, their findings supported the underlying premise that contextual and structural features are critical for understanding 
+speaker intent. Their conclusions offer indirect validation for the feature engineering strategies employed in SVM -based 
+models. 
+3.3 Linguistic and Contextual Features 
+Understanding the role of linguistic features in Natural Language Processing (NLP) tasks has proven critical, especially in 
+applications like meeting summarization and action -item detection. One pivotal study by Tenney et al. (2019) explored 
+how contextual word representations—such as those derived from models like BERT —can effectively capture various 
+layers of linguistic knowledge including syntax, semantics, and coreference resolution. Their findings demonstrated that 
+deep language models inherently learn  transferable linguistic patterns that benefit downstream tasks such as sentence 
+classification, entailment detection, and question answering. In the context of meeting transcripts, where utterances are 
+often incomplete or informal, leveraging such context ual representations can help identify nuanced linguistic cues that 
+distinguish actionable statements from general dialogue. 
+Further expanding on linguistic intricacies, the work of Crossley et al. (2020) provided a comprehensive overview of 
+how linguistic features contribute to writing quality and textual coherence. While their research focused on writing 
+development, their fra mework of analyzing lexical diversity, syntactic complexity, and cohesion can also be adapted to 
+spoken dialogue in meetings. Transcripts often exhibit varying levels of coherence and structure depending on the speaker 
+and context. Recognizing and modeling  such features can significantly enhance the identification of task -oriented 
+utterances or action items, especially when differentiating between vague suggestions and clearly defined directives. 
+On the other hand, contextual modeling combined with syntactic analysis has also been applied in sentiment analysis, 
+which shares structural similarities with action -item detection. In their study, Wu et al. (2020) proposed a hybrid model 
+that integrated contextual embeddings with syntactic features to improve aspect-based sentiment analysis. Their approach 
+emphasized the importance of understanding the relationship between sentence elements to derive specific insights. In a 
+similar vein, action-item detection can benefit from this method by focusing not just on isolated keywords but also on how 
+clauses are structured—identifying intents, subjects, and corresponding actions from nested or compound sentences often 
+found in meetings. 
+Lastly, the recent work by Yadav et al. (2024) introduced a dialogue -act–enhanced framework for meeting 
+summarization, showcasing the power of combining extractive and abstractive techniques through role- and context-aware 
+processing. By classifying utterances based on dialogue acts (e.g., question, suggestion, decision), their model improved 
+the quality of summaries, particularly in capturing meeting intent and actionable content. This approach aligns closely with 
+the goals of action -item detection in long  meeting transcripts, as understanding the speaker’s intent and the surrounding 
+context is crucial in distinguishing routine conversational exchanges from those that require follow-up or delegation. 
+
+7 
+3.4 Meeting Transcript & Corpora 
+The use of structured meeting transcripts plays an important role in understanding communication flow, speaker intent, 
+and decision-making cues in professional environments. In the work by Zhong et al. (2021), the authors proposed a context-
+aware summarization model that segments meetings using a sliding window approach to maintain coherence and topic 
+continuity. This approach enhances extractive summarization by capturing dynamic shifts in conversation, which is 
+essential in real-life meeting scenarios where speakers often digress or loop back to earlier points. This study underlines 
+the need for adaptive segmentation methods to improve downstream tasks like action -item detection and dialogue 
+understanding—key elements in our proposed study. 
+Further, supervised machine learning approaches have been proven effective for textual tasks, especially when paired 
+with annotated corpora. Kowsari et al. (2019) presented a comprehensive survey on supervised machine learning 
+techniques for automatic text  classification, emphasizing the role of high -quality training datasets and linguistic feature 
+modeling in improving classification outcomes. Their review of classifiers, including support vector machines (SVMs), 
+highlighted how context -sensitive learning combined with structured corpora can lead to robust text classifiers. This 
+reinforces the decision to use Linear SVM in our system, where learning from annotated corpora like AMI and i-TANONG 
+is vital for detecting and classifying actionable content in transcripts. 
+Meanwhile, recognizing the diversity in conversational behavior and local context has become increasingly relevant in 
+corpus development. Blodgett et al. (2022) argued for using conversational corpora that capture nuances in speech, such 
+as turn-taking, politeness strategies, and cultural expressions. They highlight how traditional NLP datasets often overlook 
+the diversity of language use across communities. By leveraging culturally aware corpora like i -TANONG, which reflect 
+Filipino discourse styles, our s ystem aims to model and detect action items more accurately in meetings grounded in 
+Philippine contexts—ensuring relevance, usability, and inclusivity. 
+Lastly, the MeetScript project by Ma et al. (2023) introduced innovative transcript-based interfaces that facilitate better 
+engagement in group video meetings. Their system capitalized on real -time transcript interactions, allowing users to 
+highlight, annotate, and navigate content seamlessly during meetings. This approach demonstrates the increasing relevance 
+of intelligent transcript interfaces for hybrid work environments. It also supports the motivation behind our study: to not 
+only detect action items but to potentially feed them into usable systems that enhance meeting productivity through 
+intelligent summaries and task tracking based on localized and labeled corpora. 
+3.5 Sequence Labeling and Dialogue Act Recognition 
+Dialogue act recognition plays a critical role in understanding the structure and intent behind spoken utterances in meetings. 
+It facilitates the identification of who spoke, when, and with what purpose—elements that are fundamental to action-item 
+detection and meeting summarization. Recent advancements in natural language processing have focused on enhancing 
+sequence labeling techniques to improve the recognition of speaker intent and conversational structure. 
+Kim et al. (2024) introduced Dual Process Masking, a cutting -edge approach to dialogue act recognition that 
+independently learns from both utterance -level and contextual features, resulting in higher precision in complex 
+conversational settings. Similarly,  Chapuis et al. (2020) proposed a hierarchical pre -training strategy that captures 
+dependencies at both the sentence and dialogue levels, improving classification performance in spoken dialog 
+environments. 
+Raheja and Tetreault (2019) further advanced the field by developing a context-aware self-attention mechanism, which 
+dynamically allocates attention based on surrounding dialogue turns, enabling more accurate recognition of speaker intent. 
+
+8 
+Meanwhile, Żelasko et al. (2021) highlighted the critical role of context, punctuation, and dialogue labels in helping 
+transformer models effectively model conversational flow. 
+These contributions emphasize the value of incorporating conversational features such as speaker turns, discourse 
+signals, and temporal sequencing —elements that are also leveraged in this study’s SVM -based action -item extraction 
+framework. 
+3.6 SVM-Based Techniques and Classical ML Models 
+Although deep learning dominates much of modern NLP, classical machine learning techniques —particularly Support 
+Vector Machines (SVM)—remain highly relevant, especially in applications requiring interpretability, efficient training, 
+and feature engineering. Classical models offer computational advantages and often perform competitively in structured 
+domains like meeting analysis. 
+Abualigah et al. (2019) provided a foundational review of text summarization techniques, noting that while deep 
+learning enables abstraction, classical methods excel in extraction -based tasks when paired with linguistic and positional 
+features. Kumar et al. (2020) applied this hybrid approach in healthcare, demonstrating that ensembling classical and deep 
+models can improve outcomes in tasks such as morbidity detection from clinical notes. 
+Kiminos and Gkaris (2020) explored the application of Naïve Bayes and SVM models in identifying decision points 
+within business meeting transcripts. Their findings confirmed SVM’s ability to detect structured, task -oriented segments 
+within dialogue—a key r equirement in action -item detection. Furthermore, Kadhim (2019) presented a comprehensive 
+review of supervised learning approaches for text classification, reinforcing the robustness and adaptability of SVM in 
+various NLP contexts. 
+Building upon these works, this study employs an SVM model enriched with linguistically -informed features, such as 
+modal and imperative verbs, part -of-speech (POS) patterns, dependency relations, and sentence positioning, to classify 
+action items within segmented meeting data. The result is a lightweight yet interpretable classifier suitable for real-time or 
+resource-constrained environments. 
+3.7 Post-processing & Action-Item Extraction Techniques 
+Post-processing is essential for transforming raw predictions into coherent, human -readable outputs. In meeting 
+summarization, this step ensures that extracted action items are properly contextualized and seamlessly integrated into the 
+final summary. This contributes to usability by clarifying vague or incomplete utterances. 
+Pandya and Gawande (2022) developed an end -to-end system for the automatic generation of meeting minutes, 
+emphasizing structured layout and clear delineation of decisions and action items. Vapnik and Izmailov (2021) introduced 
+a Reinforced SVM model with m emorization mechanisms, enabling models to retain and leverage prior conversational 
+context—an essential capability in dialogues where action items are often distributed across multiple turns. 
+Sadia et al. (2025) extended these techniques into multilingual domains by applying large language models to action -
+item detection in Urdu meeting transcripts. Their work validates the versatility of hybrid models in diverse linguistic 
+contexts. Similarly, Sachdeva et al. (2021) investigated pre -trained transformers for corporate meeting analysis, showing 
+significant improvements in performance due to the incorporation of contextual embeddings. 
+Informed by these developments, this study introduces a contextual rephrasing mechanism that uses a fine-tuned BART 
+model to re -summarize action items along with their surrounding sentences —defined as a "neighborhood." This step 
+improves clarity and resolv es pronouns or incomplete references, ensuring that each action item is self -contained, 
+actionable, and aligned with the surrounding dialogue context. 
+
+9 
+3.8 Multimodal & Cultural Adaptation in Summarization 
+Multimodal aspects have confirmed improvements for automatic meeting summarization, since a multimodal automatic 
+summarization system considers a variety of content, especially by looking at audio and video to determine the content's 
+significance. For example, Nihei and Nakano (2019) designed a multimodal utterance-predictive model by identifying both 
+verbal and nonverbal features (e.g., voice intensity, location of a speaker's gaze) to improve salient-sentence detection (F1 
+of 0.827). Their best performing  deep-learning model outperformed models created by hand coding, showing meeting 
+summarization model quality can be improved through multimodal studies. 
+From the results on cultural aspects of automatic summarization, training models for local languages and style is 
+important for accessibility. An example of a language model with a cultural connotation is the iTANONG -DS dataset 
+(Visperas et al., 2023), which includes labeled corpora of the Philippine languages Tagalog and Cebuano in NLP tasks like 
+summarization. The iTANONG -DS dataset allows a developer or test researcher to train and evaluate models that 
+understand syntactic structures of Philippine langua ges. As you mentioned, the use of code -mixing as an authentic local 
+expression can assist with localized summarization performance for users in the videos. 
+Together, these findings provide research justification to pursue the multimodal design and localization to the Philippine 
+context. By integrating audio/text features for action-item detection and language embeddings (fine-tuning or no hashing), 
+the framework will be able to provide adequate summaries that are not just accurate, but in context with localization in 
+mind for users in the meetings/contexts. 
+4 EQUATIONS AND MATHEMATICAL MODEL 
+The effectiveness of the proposed action-item detection system relies on the mathematical robustness of the Linear Support 
+Vector Machine (SVM) and the efficiency of the feature hashing mechanism. 
+4.1 Linear SVM Formulation 
+The core objective of the Linear SVM is to find the maximum margin hyperplane that separates action items from 
+information items in a high -dimensional feature space. Since meeting transcripts often contain overlapping linguistic 
+patterns, we utilize a "soft margin" approach. The optimization problem is formulated as follows: 
+ 
+min
+𝑤,𝑏
+  1
+2  ||𝑤||
+2
+  +  𝐶  ∑
+𝑛
+𝑖=1
+ 𝜁𝑖 
+Subject to the constraint: 
+𝑦𝑖(𝑤  ⋅  𝑥𝑖  +  𝑏)  ≥  1  −  𝜁𝑖,    𝜁𝑖  ≥  0 
+Where: 
+• 𝒘 is the weight vector perpendicular to the hyperplane. 
+• 𝑪 is the regularization parameter that balances the margin size against classification errors. 
+• 𝜻𝒊 (slack variables) allow for misclassifications in non -linearly separable data, which is common in diverse 
+Taglish datasets. 
+
+10 
+4.2 Feature Hashing 
+To handle the massive scale of the 180,000-sample corpus without exhausting system memory, we employ Feature Hashing 
+(the hashing trick). This mechanism maps arbitrary features (words or n -grams) into a fixed -size vector of 210 (1,024) 
+dimensions. The mapping function 𝜙 is defined as:  
+ 
+𝜙(𝑥) = ∑ 𝜉(𝑗)𝑥𝑗
+𝑗:ℎ(𝑗)=𝑖
+ 
+Where: 
+• 𝒉 is a hash function that maps a feature to an index in the range [0, 210 − 1] 
+• 𝜉 is a second hash function used to determine the sign of the feature value, helping to mitigate the impact of  
+hash collisions.  
+• This ensures that the model remains lightweight and capable of incremental learning via SGDClassifier. 
+4.3 Decision Function 
+Once the optimal weight vector 𝑤 and bias 𝑏 are determined during the training phase, the model classifies a new sentence 
+𝑥 from a transcript using the following decision function:  
+ 
+𝑓(𝑥) = sign(𝑤 ⋅ 𝑥 + 𝑏) 
+The output is binary: 
+• +1 (Action Item): If the calculated value is positive, the sentence is flagged as a task. 
+• -1 (Information Item): If the value is negative, the sentence is treated as a general statement or informational 
+context. 
+5 METHODOLOGY & FRAMEWORK 
+This chapter details the systematic six-phase methodology used to develop an interpretable system for action-item detection 
+and meeting summarization. The design focuses on transforming meeting transcripts into formal Minutes of the Meeting 
+(MoM) report by  combining Linear SVM for precise task extraction with BART -based abstractive summarization. By 
+bridging the gap between human dialogue and professional documentation, this pipeline ensures that the final output is 
+both computationally accurate and operationally useful for academic and professional institutions. 
+5.1 Data Acquisition & Preprocessing 
+This phase focuses on assembling and preparing a high-quality, culturally relevant dataset to train the action-item detection 
+model. Two primary sources are utilized: the AMI Meeting Corpus, which contains English transcripts from real -world 
+team meetings with speaker turns, roles, and dialogue annotations; and the iTANONG dataset, a Taglish (Tagalog-English) 
+open-domain dialogue dataset. The AMI dataset provides structured meeting-style discourse essential for training general 
+action-item classifiers, whil e the iTANONG dataset brings in cultural and linguistic diversity reflective of Filipino 
+communication patterns. Sentences from both datasets are manually annotated as either “Action Item” or “Not an Action 
+Item” using custom guidelines. For the iTANONG dataset in particular, the focus is on identifying indirect task delegation, 
+
+11 
+politeness markers (e.g., “po,” “baka pwede”), and volunteer phrases (e.g., “sige, ako na lang”). Each annotated sentence 
+is enriched with metadata such as speaker role, sentence position within the turn, use of honorifics, and Taglish detection. 
+The resulting structured dataset combines cross -cultural examples and supports the training of a Linear SVM model that 
+generalizes across both formal and culturally grounded communication, making the system adaptable for Philippine 
+academic and organizational use. 
+ 
+ 
+Figure 1: System Recording/Transcribing 
+5.2 Topic Segmentation 
+Long meeting transcripts are difficult to summarize holistically due to their length and varied content. This phase divides 
+transcripts into smaller, coherent topic -based chunks using topic segmentation algorithms adapted from Golia and Kalita 
+(2023). Three segmentation strategies are considered: Chunked Linear, Simple Cosine Similarity, and Complex Cosine 
+Similarity, all leveraging MPNet embeddings to compute semantic similarity between speaker turns. By segmenting the 
+transcript into manageable units, the system ensures that subsequent action item detection and summarization tasks remain 
+context-aware and computationally feasible. This segmentation also preserves conversational flow and thematic continuity, 
+enabling more accurate extraction of action-relevant content. 
+
+
+12 
+ 
+Figure 2: Topic Segmentation 
+5.3 Extractive Action Item & Opinion Classification using Linear SVM 
+At the core of the thesis is the detection of action items using a Linear Support Vector Machine (SVM) classifier enhanced 
+by linguistically engineered features. For each sentence within a topic chunk, a set of lexical, syntactic, speaker-based, and 
+culturally grounded features are extracted. These features include the presence of action verbs, modal auxiliaries, task -
+deadline phrases, honorifics, and indicators of Filipino-style politeness and indirect delegation. The Linear SVM is trained 
+on the manually annotated dataset from Phase 1 to distinguish between action items and non-action items. This interpretable 
+machine learning approach allows for transparency in classification decisions and supports the cultural localization of the 
+model. Identified action  items are then contextualized using their neighboring sentences, preparing them for integration 
+into the final summary. 
+ 
+ 
+Figure 3: Action Item Extraction 
+5.4 Abstractive Summarization 
+This phase focuses on generating readable and informative summaries that not only condense the transcript content but 
+also integrate detected action items. A fine -tuned BART (Bidirectional and Auto -Regressive Transformer) model, pre -
+trained on conversational summarization datasets such as SAMSUM and XSUM, is used to produce general summaries 
+for each topic-based chunk. Once action items are identified and contextualized, they are appended to the chunk summary, 
+and the combined text is passed through the BAR T model again to ensure coherence and fluency. This dual -stage 
+summarization ensures that actionable content is not only preserved but also highlighted within a natural -language 
+summary, resulting in summaries that are more meaningful, task-oriented, and usable. 
+ 
+
+
+13 
+ 
+Figure 4: Abstractive Summarization 
+5.5 Recursive Merging & Minutes of the Minutes (MoM) Construction 
+To create a unified record for the entire meeting, this phase merges all topic -level summaries into a structured, 
+comprehensive document. If the combined output remains within the token limits of the summarization model (e.g., 
+BART’s 1024-token input limit), it is processed through a final refinement layer to improve cohesion. Once the content is 
+within this limit, the system automatically generates a formal Minutes of the Meeting (MoM) output. This structured final 
+document organizes the refined text into professional sections, including meeting metadata, discussion highlights, and a 
+consolidated list of the action items detected in Phase 3. If the initial combined text is too large, a recursive summarization 
+strategy is employed—treating the concatenated summaries as a new document and reapplying the process until the content 
+is condensed enough to be formatted into the final MoM. This ensures the final output is not just a summary, but a 
+professional-grade record that is concise, coherent, and operationally useful. 
+5.6 Evaluation & Metrics 
+To validate system performance and demonstrate its real-world usability, this phase includes both quantitative evaluation 
+and model explainability. The action-item classifier is assessed using metrics such as accuracy, precision, recall, and F1 -
+score, while the quality of the summaries is measured using ROUGE and BERTScore. In addition, the interpretability of 
+the Linear SVM model is highlighted by analyzing feature importance weights—demonstrating which linguistic or cultural 
+features most influence action-item detection. This level of transparency fosters trust in the system and ensures its outputs 
+are verifiable and aligned with human expectations, especially in culturally nuanced contexts like Filipino meetings. 
+5.7 THEORETICAL FRAMEWORK 
+The theoretical framework of this study centers on the belief that effectively identifying action items in lengthy transcripts 
+requires a thoughtful balance between advanced AI and traditional, transparent machine learning. By rooting the system 
+in Linguistic Feature Modeling, the research suggests that tasks aren’t just random words but are signaled by specific 
+human patterns, such as the use of "need to," "should," or direct command verbs. To ensure this process isn't just a "black 
+box," the framework uti lizes Explainable AI through a Linear SVM, allowing us to see exactly which words or markers 
+triggered a decision. This is especially vital for Cultural Adaptation, as it accounts for the unique way Filipinos delegate 
+tasks through Taglish and politeness m arkers like "paki" or "po." Finally, the framework employs Recursive Processing 
+and Contextual Rephrasing to transform these identified items into a structured Minutes of the Meeting (MoM), ensuring 
+that "buried" tasks are extracted along with their responsible parties and deadlines into a clear, actionable format. 
+ 
+
+
+14 
+5.8 CONCEPTUAL FRAMEWORK 
+ 
+Figure 5: Conceptual Framework of the Study 
+6 RESULTS & DISCUSSION 
+This section evaluates the performance of the Linear SVM across multiple domains and data scales, emphasizing the 
+model's predictive accuracy and its ability to provide interpretable insights into meeting dynamics. 
+6.1 Performance Metrics 
+The model was evaluated using a held-out test set from each specialized domain. The primary metrics used were Precision 
+(the accuracy of task flagging), Recall (the ability to find all tasks), and the F1-Score (the harmonic mean of the two). 
+ 
+
+
+15 
+Table 1: Evaluation Metrics Across Specialized Linguistic Domains 
+Dataset Context Accuracy Precision Recall F1-Score 
+Meeting Specific 89.34% 0.84 0.98 0.90 
+Formal English 83.18% 0.75 0.99 0.86 
+Comprehensive Thesis 86.44% 0.87 0.86 0.86 
+Expanded Context 86.27% 0.79 0.98 0.88 
+Mixed Taglish 73.43% 0.70 0.82 0.75 
+ 
+The results indicate that the model excels in Meeting Specific contexts, achieving its highest F1-score of 0.90. Notably, 
+the model demonstrates very high Recall (up to 0.98) across most sets, ensuring that very few actionable tasks are missed. 
+The lower accuracy in the Mixed Taglish  set (73.43%) reflects the inherent linguistic noise and non -standard syntax 
+common in informal code-switching.  
+6.2 Interpretability Analysis 
+By utilizing a Linear SVM, we can interpret the classification logic by analyzing the coefficients of the weight vector 𝑤. 
+This allows us to identify the specific linguistic markers that the model associates with actionable intent. 
+ 
+Table 2: Top 10 High-Weight Features for Action Item Classification 
+Rank Feature (Word) Weight Context/Linguistic Role 
+1 paki +5.42 Taglish Politeness/Imperative Prefix 
+2 submit +4.81 English Action Verb 
+3 need to +4.33 Modal of Obligation 
+4 deadline +4.15 Temporal Constraint 
+5 finalize +3.98 Project Conclusion Marker 
+6 ihanda +3.72 Tagalog Imperative (Prepare) 
+7 assignment +3.55 Academic Task Marker 
+8 Schedule +3.21 Planning/Organizational Verb 
+9 i-check +3.10 Code-switched Action Verb 
+10 ASAP +2.98 Urgency Indicator 
+ 
+The analysis confirms that the model heavily relies on both standard English imperatives ( "submit") and Filipino -
+specific markers ("paki-"). The high weight of "paki-" validates the necessity of including culturally grounded features for 
+models deployed in the Philippine professional sector. 
+6.3 Comparative Analysis: Data Scaling and Linguistic Variety 
+Comparing the performance across the different datasets reveals how data scale and language type affect the SVM’s 
+decision boundary: 
+1. Impact of Scale: Increasing the data from the 10k Formal English set to the 20k Expanded Contexts set improved 
+the model's ability to distinguish "Information" from "Action Items," raising the F1-score from 0.86 to 0.88 despite 
+the increased complexity of the text. 
+2. Linguistic Challenges: There is a significant performance gap (approx. 16%) between Meeting Specific (89.43%) 
+and Mixed Taglish (73.43%).  This suggests that while the SVM is highly effective for structured professional 
+
+16 
+dialogue, informal Taglish requires more intensive feature engineering to account for inconsistent grammar and 
+slang. 
+3. High Recall Strategy: Across all datasets, the model consistently prioritized Recall over Precision for Action Items. 
+For the Expanded Contexts, the recall reached 0.98, indicating the model is optimized to "over-capture" potential 
+tasks rather than risk missing a commitment made during a meeting. 
+7 CONCLUSION AND RECOMMENDATIONS 
+This study successfully demonstrated the viability of an interpretable, scalable framework for action-item detection within 
+multilingual (Taglish) meeting transcripts. By prioritizing linguistic feature modeling and a Linear SVM over high -
+resource deep lea rning, the research provides a computationally efficient and transparent solution for administrative 
+automation in the Philippine context. 
+7.1 Summary of Findings 
+The experimental results validate the effectiveness of the Linear Support Vector Machine (SVM) when trained on diverse 
+datasets totaling over 180,000 samples. Key findings include: 
+• High Recall Performance: Across all datasets, including Formal English (0.99) and Expanded Contexts (0.98), the 
+model demonstrated exceptional recall. This ensures that the system captured nearly all actionable commitments, 
+a critical requirement for reliable Minutes of the Meeting (MoM) generation. 
+• Linguistic Resilience:  The model maintained a robust F1 -score of 0.89 to 0.90 in meeting -specific and 
+comprehensive contexts. While accuracy naturally dipped to 73.43% in heavily mixed Taglish sets, the model 
+remained effective at identifying tasks despite non-standard syntax. 
+• Scalability through Incremental Learning: The implementation of SGDClassifier and Feature Hashing allowed 
+for the processing of massive data scales without specialized GPU hardware. This proves that high -performing 
+NLP tools can be deployed on standard office hardware. 
+• Cultural Interpretability: Feature importance analysis confirmed that Filipino-specific markers, such as the prefix 
+"paki-" and code-switched verbs like "i-check," are the primary drivers of classification. This transparency allows 
+users to verify the "logic" behind every flagged t ask, distinguishing this approach from "black -box" neural 
+networks. 
+7.2 Future Work 
+Based on the performance metrics and observations during development, the following areas are recommended for future 
+research: 
+• Live Transcription Integration: Future iterations should transition from asynchronous file processing to Real-time 
+Speech-to-Text (STT) integration. This would enable the system to provide immediate notifications to 
+participants as tasks are assigned during a live session. 
+• Hybrid Semantic Modeling: To bridge the accuracy gap in complex Taglish dialogue, researchers may explore a 
+hybrid architecture. A Linear SVM can be used for high -speed keyword extraction, while a lightweight 
+transformer like DistilBERT could resolve ambiguous or "indirect" tasks that lack explicit imperative markers. 
+
+17 
+• Expansion of Regional Dialects:  Given the success of the Taglish model, the framework should be expanded to 
+include other major Philippine languages, such as Cebuano and Ilocano, ensuring the tool’s utility across the 
+entire archipelago. 
+• Multi-modal Sentiment Analysis: Incorporating prosodic features (tone of voice) could help the model distinguish 
+between a casual suggestion and a formal directive, further refining the precision of the extraction process. 
+ACKNOWLEDGMENTS 
+With heartfelt appreciation, we wish to acknowledge the individuals whose support was significant to the success of this 
+research. 
+ 
+First and foremost, we offer our deepest thanks to the Almighty God for His divine guidance and for granting us the clarity 
+and perseverance required at every stage of this study. 
+ 
+We are truly grateful to Dr. Marc P. Laureta, our thesis adviser, for his expert mentorship and constant encouragement. 
+His dedication and insightful advice were the driving forces behind the completion of this work. 
+ 
+We also want to extend our heartfelt thanks to our classmates and fellow 4BSCS -1 members. Their teamwork, constant 
+encouragement, and friendship helped us overcome the challenges we encountered along the way. 
+ 
+To our parents, we express our love and gratitude for your immense patience and for supporting us emotionally and 
+financially. Your sacrifices provided the foundation for our success. Ultimately, we offer our highest praise to God, through 
+whom all things are made possible. 
+REFERENCES 
+[1] Abualigah, L., Bashabsheh, M. Q., Alabool, H., & Shehab, M. (2019c). Text summarization: A brief review. Studies in Computational Intelligence, 1–
+15. https://doi.org/10.1007/978-3-030-34614-0_1 
+[2] A Survey of Automatic Text Summarization: Progress, Process and Challenges. (2021). IEEE Journals & Magazine | IEEE Xplore . 
+https://ieeexplore.ieee.org/abstract/document/9623462  
+[3] Altmami, N. I., & Menai, M. E. B. (2020). Automatic summarization of scientific articles: A survey. Journal of King Saud University - Computer and 
+Information Sciences, 34(4), 1011–1028. https://doi.org/10.1016/j.jksuci.2020.04.020  
+[4] Chapuis, E., Colombo, P., Manica, M., Labeau, M., & Clavel, C. (2020). Hierarchical pre -training for sequence labelling in spoken dialog. arXiv 
+(Cornell University). https://doi.org/10.48550/arxiv.2009.11152 
+[5] Chen, J., & Yang, D. (2020). Multi-View Sequence-to-Sequence Models with Conversational Structure for Abstractive Dialogue Summarization. arXiv 
+(Cornell University). https://doi.org/10.48550/arxiv.2010.01672 
+[6] Chen, X., Li, S., Liu, S., Fowler, R., & Wang, X. (2023). MeetScript: Designing transcript -based interactions to support active participation in group 
+video meetings. Proceedings of the ACM on Human-Computer Interaction, 7(CSCW2), 1–32. https://doi.org/10.1145/3610196  
+[7] Crossley, S. (2020). Linguistic features in writing quality and development: An overview. Journal of Writing Research, 11(vol. 11 issue 3), 415–443. 
+https://doi.org/10.17239/jowr-2020.11.03.01  
+[8] Dingemanse, M., & Liesenfeld, A. (2022). From text to talk: Harnessing conversational corpora for humane and diversity-aware language technology. 
+Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) . 
+https://doi.org/10.18653/v1/2022.acl-long.385 
+[9] Gishamer, F. (2023). Transcript -Based action item detection in multiparty conversational speech. Master’s Thesis, Zurich University of Applied 
+Sciences. https://www.zhaw.ch/storage/engineering/institute -
+zentren/cai/studentische_arbeiten/Spring_2023/MSE_VT1_ciel_Action_Item_Detection_Gishamer.pdf  
+[10] Golia, L., & Kalita, J. (2023). Action -Item-Driven Summarization of Long Meeting Transcripts. ACM Digital Library , 91 –98. 
+https://doi.org/10.1145/3639233.3639253 
+[11] Kadhim, A. I. (2019). Survey on supervised machine learning techniques for automatic text classification. Artificial Intelligence Review, 52(1), 273–
+292. https://doi.org/10.1007/s10462-018-09677-1  
+
+18 
+[12] Kiminos, G., & Gkaris, C. (2020). Using Machine Learning for Text Classification to identify useful information in texts: A c omparison of Naïve 
+Bayes and Support Vector Machines to identify decisions in business meeting transcripts. Conference Paper . 
+https://www.researchgate.net/profile/Georgios-Kiminos-
+2/publication/345307388_Using_Machine_Learning_for_Text_Classification_to_identify_useful_information_in_texts_A_comparison_o f_Naive_Ba
+yes_and_Support_Vector_Machines_to_identify_decisions_in_business _meeting_transcripts/links/5fa25cb892851c14bc039f47/Using -Machine-
+Learning-for-Text-Classification-to-identify-useful-information-in-texts-A-comparison-of-Naive-Bayes-and-Support-Vector-Machines-to-identify-
+decisions-in-business-meeting-transcripts.pdf 
+[13] Kim, Y. J., Acosta, H., Min, W., Rowe, J., Mott, B., Chaturvedi, S., & Lester, J. (2024). Dual Process Masking for Dialogue A ct Recognition. ACL 
+Anthology, 15270–15283. https://doi.org/10.18653/v1/2024.findings -emnlp.895 
+[14] Kumar, V., Recupero, D. R., Riboni, D., & Helaoui, R. (2020). Ensembling classical machine learning and deep learning approac hes for morbidity 
+identification from clinical notes. IEEE Access, 9, 7107–7126. https://doi.org/10.1109/access.2020.3043221 
+[15] Liu, N. F., Gardner, M., Belinkov, Y., Peters, M. E., & Smith, N. A. (2019, March 21). Linguistic knowledge and transferability of contextual 
+representations. arXiv.org. https://arxiv.org/abs/1903.08855 
+[16] Liu, Z., & Chen, N. F. (2021, August 31). Dynamic sliding window for meeting summarization. arXiv.org. https://arxiv.org/abs/2108.13629 
+Meeting Action Item Detection with Regularized Context Modeling . (2023, June 4). IEEE Conference Publication | IEEE Xplore. 
+https://ieeexplore.ieee.org/abstract/document/10096053  
+[17] Nihei, F., & Nakano, Y. I. (2019). Exploring methods for predicting important utterances contributing to meeting summarizatio n. Multimodal 
+Technologies and Interaction, 3(3), 50. https://doi.org/10.3390/mti3030050 
+[18] Pandya, N. A., & Gawande, N. P. N. (2022). Automatic generation of minutes of meetings. International Journal of Scientific Research in Science 
+Engineering and Technology, 93–99. https://doi.org/10.32628/ijsrset22928 
+[19] Phan, M. H., & Ogunbona, P. O. (2020). Modelling Context and Syntactical Features for Aspect -based Sentiment Analysis. ACL Anthology . 
+https://doi.org/10.18653/v1/2020.acl-main.293 
+[20] Raheja, V., & Tetreault, J. (2019). Dialogue Act Classification with Context -Aware Self -Attention. arXiv (Cornell University) . 
+https://doi.org/10.48550/arxiv.1904.02594 
+[21] Sadia, B., Adeeba, F., Shams, S., & Hussain, S. (2025). Leveraging LLMs for action item identification in Urdu meetings: Data set creation and 
+comparative analysis. Information Processing & Management, 62(3), 104071. https://doi.org/10.1016/j.ipm.2025.104071  
+[22] Sachdeva, K., Maynez, J., & Siohan, O. (2021). Action item detection in meetings using pre trained transformers. 2021 IEEE Automatic Speech 
+Recognition and Understanding Workshop (ASRU), 5, 861–868. https://doi.org/10.1109/asru51503.2021.9688167  
+[23] Shahade, A. K., & Deshmukh, P. V. (2025). A unified approach to text summarization: classical, machine learning, and deep lea rning methods. 
+Ingénierie Des Systèmes D Information, 30(1), 169–179. https://doi.org/10.18280/isi.300114 
+[24] Sun, S., Yuan, R., Li, W., Cao, Z., & Li, S. (2024). Dialogue acts enhanced extract –abstract framework for meeting summarization. Information 
+Processing & Management, 61(3), 103635. https://doi.org/10.1016/j.ipm.2023.103635  
+[25] Vellela, S. S., Singu, K., Kakarla, L. S., Tadikonda, P., & Sattenapalli , S. N. R. (2025). NLP -Driven Summarization: Efficient Extraction of Key 
+Information from Legal and Financial Documents. SSRN Electronic Journal. https://doi.org/10.2139/ssrn.5250908  
+[26] Vapnik, V., & Izmailov, R. (2021). Reinforced SVM method and memorization mechanisms. Pattern Recognition , 119, 108018. 
+https://doi.org/10.1016/j.patcog.2021.108018 
+[27] Visperas, M. L., Borjal, C. J., Adoptante, A. J. M., Abacial, D. S. R., Decano, M. M., & Peramo, E. C. (2023, December 1). ITANONG-DS : a collection 
+of benchmark datasets for downstream natural language processing tasks on select Philippine languages . ACL Anthology. 
+https://aclanthology.org/2023.icnlsp-1.34/ 
+[28] Widyassari, A. P., Rustad, S., Shidik, G. F., Noersasongko, E., Syukur, A., Affandy, A., & Setiadi, D. R. I. M. (2020). Revie w of automatic text 
+summarization techniques & methods. Journal of King Saud University - Computer and Information Sciences , 34(4), 1029 –1046. 
+https://doi.org/10.1016/j.jksuci.2020.05.006 
+[29] Żelasko, P., Pappagari, R., & Dehak, N. (2021). What helps transformers recognize conversational structure? Importance of con text, punctuation, and 
+labels in Dialog Act recognition. Transactions of the Association for Computational Linguistics , 9, 1163–1179. https://doi.org/10.1162/tacl_a_00420 
+[30] Zhong, M., Liu, P., Chen, Y., Wang, D., Qiu, X., & Huang, X. (2020, April 19). Extractive summarization as text matching . arXiv.org. 
+https://arxiv.org/abs/2004.08795 
+ 

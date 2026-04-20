@@ -11,7 +11,7 @@ class VideoFileManager(ctk.CTkToplevel):
         super().__init__(parent)
         
         # Window Config
-        self.title("Video Files Manager")
+        self.title("Files Manager")
         self.geometry("560x500")
         self.minsize(560, 500)
         self.maxsize(560, 500)
@@ -37,7 +37,7 @@ class VideoFileManager(ctk.CTkToplevel):
         
         title_label = ctk.CTkLabel(
             title_frame, 
-            text="📹 Video Recordings", 
+            text="📹 Video/Audio Recordings", 
             font=("Inter", 20, "bold")
         )
         title_label.pack(side="left")
