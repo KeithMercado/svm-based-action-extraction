@@ -51,7 +51,7 @@ def select_transcription_engine():
 
 def select_summarization_engine():
     """Prioritize Groq Llama automatically with local fallback."""
-    print("\n[System] Model-Lllama summarization is prioritized automatically.")
+    print("\n[System] Summarization is prioritized automatically.")
     return "groq"
 
 
@@ -219,10 +219,10 @@ def process_file(
     segmenter.print_segments(topic_segments)
 
     # --- PHASE 3: ACTION ITEM EXTRACTION ---
-    print_phase_header(3, "ACTION ITEM EXTRACTION & MODEL-LLLAMA AUDIT")
+    print_phase_header(3, "ACTION ITEM EXTRACTION & MODEL AUDIT")
     segment_metadata = segmenter.get_segment_metadata()
     if segment_metadata:
-        print("[System] Using fast segment-level auditing (respects threshold, fewer Llama calls)...")
+        print("[System] Using fast segment-level auditing (respects threshold)...")
         audit_report = classifier.audit_segments_batch(
             raw_text,
             segment_metadata,
@@ -237,9 +237,9 @@ def process_file(
     corrections = audit_report["corrections"]
 
     if corrections:
-        print(f"\n[Model-Lllama] Proposed {len(corrections)} corrections from the full transcript context.")
+        print(f"\n[Model] Proposed {len(corrections)} corrections from the full transcript context.")
     else:
-        print("\n[Model-Lllama] No corrections were proposed.")
+        print("\n[Model] No corrections were proposed.")
 
     # --- PHASE 4: SUMMARIZATION ---
     print_phase_header(4, "SUMMARIZATION")
@@ -250,17 +250,17 @@ def process_file(
     if corrections:
         print("\n" + "=" * 60)
         ask_review = input(
-            "Apply all Model-Lllama corrections to the student model and CSV? (y/n): "
+            "Apply all model corrections to the student model and CSV? (y/n): "
         ).strip().lower()
 
         if ask_review == "y":
-            print("\n" + "█" * 60 + "\n MODEL-LLLAMA CORRECTION APPLY MODE \n" + "█" * 60)
+            print("\n" + "█" * 60 + "\n MODEL CORRECTION APPLY MODE \n" + "█" * 60)
             trainer = ModelTrainer(classifier)
             trainer.save_corrections_to_csv(corrections)
         else:
-            print("[System] Model-Lllama corrections skipped.")
+            print("[System] Model corrections skipped.")
     else:
-        print("[System] No Model-Lllama corrections to apply.")
+        print("[System] No model corrections to apply.")
 
 
 def main():

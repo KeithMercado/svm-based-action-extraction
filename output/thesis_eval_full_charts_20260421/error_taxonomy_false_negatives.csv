@@ -1,0 +1,7 @@
+error_type,count,percentage
+Taglish mix,1,7.69
+ASR noise,4,30.77
+Indirect commitment,0,0.0
+Pronoun ambiguity,3,23.08
+Long-context dependency,0,0.0
+Other,5,38.46

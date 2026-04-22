@@ -17,6 +17,9 @@ class ReportContentFormatter:
     ACTION_SECTION_PATTERN = re.compile(r"^\s*(?:#{1,6}\s*)?action items?\s*:?\s*$", flags=re.IGNORECASE)
     NUMBERED_PREFIX_PATTERN = re.compile(r"^\s*\d+[\.)]\s+")
 
+    def __init__(self):
+        self._llama_explanation_cache = {}
+
     def clean_summary(self, summary_text):
         lines = (summary_text or "").splitlines()
         cleaned_lines = []
@@ -47,16 +50,34 @@ class ReportContentFormatter:
         merged = re.sub(r"\baction items?\b\s*[:\-].*$", "", merged, flags=re.IGNORECASE).strip()
         return merged
 
-    def split_summary_into_paragraphs(self, summary_text):
+    def split_summary_into_paragraphs(self, summary_text, duration_seconds=None):
         text = self.clean_summary(summary_text)
         if not text:
+            # Generate duration-aware placeholder message
+            if duration_seconds:
+                if duration_seconds < 300:  # Less than 5 minutes
+                    return ["This was a brief meeting covering the main discussion points and decisions."]
+                elif duration_seconds < 1800:  # Less than 30 minutes
+                    return ["This meeting addressed key topics with focused discussion and identified action items."]
+                else:
+                    return ["This comprehensive meeting covered multiple topics in depth, with thorough discussion and clear next steps."]
             return ["No executive summary was generated for this session."]
 
         sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
         if not sentences:
             return [text]
 
-        target_paragraphs = 3 if len(sentences) >= 9 else 2
+        # Adjust paragraph count based on meeting duration and content length
+        if duration_seconds:
+            if duration_seconds < 300:  # Less than 5 minutes
+                target_paragraphs = 1
+            elif duration_seconds < 1800:  # Less than 30 minutes
+                target_paragraphs = 2
+            else:
+                target_paragraphs = 3
+        else:
+            target_paragraphs = 3 if len(sentences) >= 9 else 2
+        
         chunk_size = max(1, len(sentences) // target_paragraphs)
         paragraphs = []
 
@@ -73,7 +94,81 @@ class ReportContentFormatter:
         return paragraphs if paragraphs else [text]
 
     def build_action_explanation(self, action_item):
-        """Generate a contextual, relatable explanation tied to the specific action item."""
+        """Generate a contextual explanation for an action item using Llama."""
+        item = (action_item or "").strip()
+        if not item:
+            return "Assign ownership and track progress toward completion."
+        
+        # Check cache first to avoid repeated API calls
+        if item in self._llama_explanation_cache:
+            return self._llama_explanation_cache[item]
+        
+        # Try to generate explanation with Llama via Groq
+        explanation = self._generate_llama_explanation(item)
+        
+        # Cache the result
+        self._llama_explanation_cache[item] = explanation
+        return explanation
+    
+    def _generate_llama_explanation(self, action_item):
+        """Call Groq/Llama to generate a brief action task explanation."""
+        try:
+            from integrations.groq.summarize import summarize_with_groq
+            import os
+            from dotenv import load_dotenv
+        except ImportError:
+            # Fallback if imports fail
+            return self._fallback_action_explanation(action_item)
+        
+        try:
+            load_dotenv()
+            api_key = os.getenv("GROQ_API_KEY")
+            if not api_key:
+                return self._fallback_action_explanation(action_item)
+            
+            from groq import Groq
+        except (ImportError, RuntimeError):
+            return self._fallback_action_explanation(action_item)
+        
+        try:
+            client = Groq(api_key=api_key)
+            model = os.getenv("GROQ_SUMMARY_MODEL", "llama-3.1-8b-instant")
+            
+            prompt = (
+                f"Generate a brief, actionable task description (1-2 sentences) for the following action item. "
+                f"Do not include quotation marks or extra formatting.\n\n"
+                f"Action Item: {action_item}"
+            )
+            
+            result = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a task management assistant. Provide clear, concise action task descriptions."
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_completion_tokens=100,
+            )
+            
+            explanation = result.choices[0].message.content.strip() if result.choices else None
+            
+            if explanation and len(explanation) > 0:
+                # Clean up any quotes if present
+                explanation = explanation.strip('\'"')
+                return explanation
+            else:
+                return self._fallback_action_explanation(action_item)
+                
+        except Exception as e:
+            # Log error silently and fall back to static explanation
+            print(f"Groq API error generating explanation: {e}")
+            return self._fallback_action_explanation(action_item)
+    
+    def _fallback_action_explanation(self, action_item):
+        """Fallback static explanation based on action verb."""
         item = (action_item or "").strip()
         item_lower = item.lower()
         
@@ -96,8 +191,8 @@ class ReportContentFormatter:
         if any(verb in item_lower for verb in ["update", "document", "record", "log"]):
             return f"Keep {item} current and accurate. Update the team regularly and ensure all relevant stakeholders have access."
         
-        # Fallback: create a simple, direct explanation
-        return f"Complete this action item: {item}. Assign ownership, set a deadline, track progress, and communicate status updates regularly."
+        # Fallback: generic actionable task
+        return f"Assign ownership, set a clear deadline, track progress, and communicate status updates regularly. Document milestones and ensure team accountability."
 
     def extract_llama_action_items(self, summary_text):
         """Extract bullet/numbered action items produced by Llama in the summary output."""
@@ -213,14 +308,22 @@ class ReportStyleFactory:
             "transcript": ParagraphStyle(
                 "Transcript",
                 parent=styles["Normal"],
-                fontSize=8.8,
-                leading=11,
-                textColor=colors.HexColor("#5A6570"),
+                fontSize=10.5,
+                leading=15,
+                alignment=TA_JUSTIFY,
+                spaceAfter=8,
             ),
         }
 
 
 class ExportService:
+    DEFAULT_SECTIONS = [
+        "Executive Overview",
+        "Topics Discussed",
+        "Action Items",
+        "Full Transcript",
+    ]
+
     def __init__(self):
         self.output_dir = os.path.join("output", "pdf")
         self.formatter = ReportContentFormatter()
@@ -268,6 +371,8 @@ class ExportService:
         end_time=None,
         source_file=None,
         topics=None,
+        section_order=None,
+        include_sections=None,
     ):
         """Generate a professional PDF report with narrative summary and Llama action items."""
         try:
@@ -287,7 +392,18 @@ class ExportService:
 
         duration_str = self._format_duration(duration_seconds, start_time, end_time)
 
-        summary_paragraphs = self.formatter.split_summary_into_paragraphs(summary or "")
+        summary_paragraphs = self.formatter.split_summary_into_paragraphs(summary or "", duration_seconds)
+
+        order = [section for section in (section_order or self.DEFAULT_SECTIONS) if section in self.DEFAULT_SECTIONS]
+        for section in self.DEFAULT_SECTIONS:
+            if section not in order:
+                order.append(section)
+
+        selected_sections = set(include_sections or self.DEFAULT_SECTIONS)
+
+        selected_action_items = [str(item).strip() for item in (action_items or []) if str(item).strip()]
+        if not selected_action_items:
+            selected_action_items = self.formatter.extract_llama_action_items(summary or "")
 
         pdf_path = self._build_pdf_path(source_file)
 
@@ -311,43 +427,55 @@ class ExportService:
         story.append(Paragraph(f"<b>Meeting Duration:</b> {duration_str}", report_styles["meta"]))
         story.append(Spacer(1, 0.18 * inch))
 
-        story.append(Paragraph("Executive Overview", report_styles["heading"]))
-        for paragraph in summary_paragraphs:
-            story.append(Paragraph(escape(paragraph), report_styles["body"]))
-        story.append(Spacer(1, 0.1 * inch))
+        for section in order:
+            if section not in selected_sections:
+                continue
 
-        # Topics Discussed section
-        if topics:
-            story.append(Paragraph("Topics Discussed", report_styles["heading"]))
-            topic_list = topics if isinstance(topics, list) else [topics]
-            for idx, topic in enumerate(topic_list, 1):
-                clean_topic = str(topic).strip()
-                if clean_topic:
-                    story.append(Paragraph(f"<b>{idx}.</b> {escape(clean_topic)}", report_styles["body"]))
-            story.append(Spacer(1, 0.1 * inch))
+            if section == "Executive Overview":
+                story.append(Paragraph("Executive Overview", report_styles["heading"]))
+                for paragraph in summary_paragraphs:
+                    story.append(Paragraph(escape(paragraph), report_styles["body"]))
+                story.append(Spacer(1, 0.1 * inch))
+                continue
 
-        story.append(Paragraph("Action Items", report_styles["heading"]))
-        items = self.formatter.extract_llama_action_items(summary or "")
-        if items:
-            for item in items:
-                clean_item = item.strip()
-                if not clean_item:
-                    continue
-                story.append(Paragraph(f"<b>• Action Item:</b> {escape(clean_item)}", report_styles["action_item"]))
-                story.append(
-                    Paragraph(
-                        f"<i>Task:</i> {escape(self.formatter.build_action_explanation(clean_item))}",
-                        report_styles["action_help"],
-                    )
-                )
-        else:
-            story.append(Paragraph("<i>No action items were identified in the generated summary.</i>", report_styles["body"]))
+            if section == "Topics Discussed":
+                story.append(Paragraph("Topics Discussed", report_styles["heading"]))
+                topic_list = topics if isinstance(topics, list) else [topics]
+                has_topics = False
+                for idx, topic in enumerate(topic_list, 1):
+                    clean_topic = str(topic).strip() if topic is not None else ""
+                    if clean_topic:
+                        has_topics = True
+                        story.append(Paragraph(f"<b>{idx}.</b> {escape(clean_topic)}", report_styles["body"]))
+                if not has_topics:
+                    story.append(Paragraph("<i>No topics were identified.</i>", report_styles["body"]))
+                story.append(Spacer(1, 0.1 * inch))
+                continue
 
-        # Optional section for future use:
-        story.append(Spacer(1, 0.14 * inch))
-        story.append(Paragraph("Full Transcription", report_styles["heading"]))
-        safe_content = escape(content or "[Empty Transcript]").replace("\n", "<br/>")
-        story.append(Paragraph(safe_content, report_styles["transcript"]))
+            if section == "Action Items":
+                story.append(Paragraph("Action Items", report_styles["heading"]))
+                if selected_action_items:
+                    for item in selected_action_items:
+                        clean_item = item.strip()
+                        if not clean_item:
+                            continue
+                        story.append(Paragraph(f"<b>[ ]</b> {escape(clean_item)}", report_styles["action_item"]))
+                        story.append(
+                            Paragraph(
+                                f"<i>Task:</i> {escape(self.formatter.build_action_explanation(clean_item))}",
+                                report_styles["action_help"],
+                            )
+                        )
+                else:
+                    story.append(Paragraph("<i>No action items were selected for this report.</i>", report_styles["body"]))
+                story.append(Spacer(1, 0.1 * inch))
+                continue
+
+            if section == "Full Transcript":
+                story.append(Spacer(1, 0.14 * inch))
+                story.append(Paragraph("Full Transcript", report_styles["heading"]))
+                safe_content = escape(content or "[Empty Transcript]").replace("\n", "<br/>")
+                story.append(Paragraph(safe_content, report_styles["transcript"]))
 
         doc.build(story)
         return pdf_path

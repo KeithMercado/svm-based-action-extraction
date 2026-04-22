@@ -1,4 +1,4 @@
-# Interpretable Action-Item Detection in Multilingual Meeting Pipelines Using Incremental Linear SVM
+﻿Interpretable Action-Item Detection in Multilingual Meeting Pipelines Using Incremental Linear SVM
 
 Venus Ruselle B. Daanoy  
 College of Informatics and Computing Studies, New Era University  
@@ -7,38 +7,32 @@ venusruselle.daanoy@neu.edu.ph
 John Keith S. Mercado  
 College of Informatics and Computing Studies, New Era University  
 johnkeith.mercado@neu.edu.ph
-
-## ABSTRACT
+ABSTRACT
 Hybrid and remote collaboration has increased the need for reliable meeting intelligence systems that can extract actionable commitments from long transcripts, especially in multilingual and code-switched contexts such as Taglish. This paper presents an interpretable, modular four-phase pipeline for meeting processing: (1) speech transcription with dual-engine fallback (Groq and local Whisper), (2) semantic segmentation using sentence-embedding cosine boundaries and token-budget constraints, (3) action-item detection using a hashing-based feature space and incremental linear SVM (SGD hinge), and (4) abstractive summarization with Groq/local BART fallback. The classifier supports deployment-oriented threshold modes (balanced and high-recall), enabling explicit false-positive versus false-negative control. On the primary evaluation set, the precision-recall curve achieved AUPRC = 0.9162. Balanced mode produced precision = 0.8080 and recall = 0.9095, while high-recall mode achieved precision = 0.8089 and recall = 0.9146, reducing missed actions (FN: 18 to 17) without increasing false alarms (FP: 43 to 43). Data hygiene analysis reported 184,976 raw rows reduced to 64,144 unique rows after deduplication with 12 conflict groups, strengthening reproducibility and label quality claims. Results show that an interpretable linear model, when embedded in a robust pipeline and calibrated via threshold operating points, remains practical and competitive for multilingual meeting action extraction.
 
-**CCS Concepts:** Computing methodologies -> Supervised learning by classification; Natural language processing; Information extraction; Document summarization.  
-**Keywords:** Action-item detection, Taglish NLP, Linear SVM, Meeting intelligence, Precision-recall tradeoff, Interpretable ML
-
-## 1 INTRODUCTION
+CCS Concepts: Computing methodologies -> Supervised learning by classification; Natural language processing; Information extraction; Document summarization.  
+Keywords: Action-item detection, Taglish NLP, Linear SVM, Meeting intelligence, Precision-recall tradeoff, Interpretable ML
+1 INTRODUCTION
 The rise of hybrid and remote collaboration has transformed meetings into high-volume digital records, but this shift has also intensified a practical problem: teams struggle to convert long, unstructured conversations into clear and actionable follow-up tasks. In many organizational settings, important commitments are buried across extended dialogue turns, making manual review slow, inconsistent, and vulnerable to omission. As transcript length grows, the cognitive load required to identify who needs to do what, and when, increases significantly.
 
 This challenge is more pronounced in multilingual environments such as the Philippines, where code-switching between English and Tagalog (Taglish) is common in professional and academic meetings. Task-oriented statements may appear as direct commands, polite requests, indirect delegations, or culturally contextual phrasing. Generic NLP pipelines that were primarily optimized for monolingual and formally structured corpora often fail to capture these nuances reliably. As a result, systems can miss true commitments or over-flag non-actionable conversation, both of which reduce trust in automated meeting assistance.
 
 While transformer-based architectures may achieve strong benchmark performance, practical deployment often requires additional properties beyond raw accuracy: interpretability, controllable error tradeoffs, retraining efficiency, and resilience under runtime constraints. For this reason, this thesis focuses on an interpretable and deployment-oriented alternative: a modular four-phase pipeline that combines robust transcription, semantic segmentation, incremental linear SVM classification, and abstractive summarization. The central objective is action-item extraction, with summarization serving as a supporting output for readability and communication.
-
-### 1.1 Background of the Study
+1.1 Background of the Study
 Automated meeting analysis has evolved from basic summarization and keyword extraction toward intent-aware understanding of conversational content. Prior work has shown that summarization alone is often insufficient for operational follow-through because condensed narratives may omit concrete assignments, deadlines, or ownership signals. This gap motivates action-item detection as a specialized task within meeting intelligence, where the system must distinguish actionable commitments from informational dialogue.
 
 Classical machine learning methods, particularly linear SVM variants, remain relevant in this setting because they offer strong performance on sparse textual features, efficient incremental updates, and clearer decision behavior compared with purely black-box alternatives. In multilingual and code-switched contexts, these properties are especially useful: practitioners can inspect model behavior, tune thresholds based on deployment priorities, and iterate quickly as domain-specific language patterns evolve.
 
 At the same time, production reliability depends on more than the classifier itself. End-to-end performance is shaped by transcription quality, segmentation strategy, and fallback handling when external services are unavailable. The current study is grounded in this systems perspective. Rather than treating action-item detection as an isolated modeling exercise, it evaluates a complete pipeline with explicit operating modes (balanced and high-recall), transparent precision-recall tradeoff reporting, and reproducible evaluation artifacts. This background establishes the rationale for the proposed approach and frames the study's contribution to practical, interpretable meeting intelligence in multilingual environments.
-
-## 2 RELATED WORKS (SYNTHESIS, JUSTIFICATION, AND CONCEPTUAL FRAMEWORK)
+2 RELATED WORKS (SYNTHESIS, JUSTIFICATION, AND CONCEPTUAL FRAMEWORK)
 Recent work on meeting intelligence generally falls into three streams: summarization-focused systems, action-item detection models, and end-to-end conversational pipelines. Summarization studies consistently report that concise meeting narratives improve readability, yet summary-first designs may miss explicit assignments, deadlines, and ownership cues when actionable content is embedded in indirect dialogue (Widyassari et al., 2020; Yadav et al., 2022; Patel and Pareek, 2021). For meeting-style discourse, extractive matching and dialogue-act-aware strategies improve relevance, but still require action-specific modeling to separate commitments from general discussion (Zhang et al., 2020; Sun et al., 2024). In parallel, action-item detection studies show that lexical, structural, and contextual features are critical for distinguishing commitments from informational statements, including work that combines regularized context with SVM-based classifiers (Stojanovic et al., 2023; Gishamer, 2023; Kiminos and Gkaris, 2020).
 
 From this synthesis, two design priorities emerge for the present study. First, interpretability and threshold control are practical deployment requirements, especially when teams must audit why a sentence was flagged as actionable. This is aligned with evidence that classical supervised methods remain competitive in structured text-classification settings where feature behavior and decision boundaries must remain inspectable (Kadhim, 2019; Kowsari et al., 2019). Second, reliability is determined by the full pipeline rather than classification alone, because upstream transcript quality, segmentation strategy, and conversational context strongly influence downstream precision-recall behavior (Liu and Chen, 2021; Zhong et al., 2020; Raheja and Tetreault, 2019). These patterns justify a modular design where each stage is independently testable and tunable.
 
 This justification also supports the choice of an incremental linear SVM core within a broader multilingual pipeline. Compared with purely black-box approaches, linear models provide clearer decision behavior and faster iteration when language patterns evolve across domains, while still allowing integration with modern summarization and interface components where needed (Abualigah et al., 2019; Sachdeva et al., 2021; Chen et al., 2023). For localization, culturally grounded corpora are essential because code-switching and politeness strategies materially affect task expression and extraction quality (Dingemanse and Liesenfeld, 2022; Visperas et al., 2023). Therefore, by combining incremental SVM classification with robust transcription fallback, semantic segmentation, and threshold-based operating modes, the framework preserves the original thesis logic while directly addressing literature-identified gaps: explainability, operational controllability, and reproducible evaluation.
-
-### 2.1 Conceptual Framework of the Study
+2.1 Conceptual Framework of the Study
 The conceptual framework models the system as a sequential decision pipeline. Input meeting audio or transcript data is transformed across four major phases: transcription, semantic segmentation, action-item classification, and summarization. The independent design variables include transcription engine choice (Groq or local), segmentation configuration, and decision threshold mode (balanced or high-recall). The dependent performance variables are precision, recall, F1, confusion-matrix behavior, and precision-recall operating characteristics. The framework assumes that improved upstream signal quality and coherent segment structure increase downstream action-item detection reliability, while threshold calibration controls the error-cost tradeoff between missed commitments and false alarms.
-
-## 3 PROBLEM STATEMENT
+3 PROBLEM STATEMENT
 The rapid growth of hybrid and remote meetings has produced long, unstructured transcripts where operational commitments are difficult to track manually. In multilingual settings, especially Taglish conversations, action-oriented statements are often expressed through code-switching, indirect phrasing, and politeness markers, which makes automatic extraction difficult for generic NLP pipelines. Existing methods also present practical constraints: some prioritize broad summarization over explicit task extraction, some reduce interpretability for end users, and some do not provide clear operating-threshold control for balancing missed commitments against false alarms. As a result, organizations risk overlooked follow-ups, inconsistent task accountability, and delayed execution.
 
 This study therefore addresses the following research questions:
@@ -47,80 +41,64 @@ This study therefore addresses the following research questions:
 2. How do threshold operating modes (balanced versus high-recall) change precision-recall behavior and operational error costs?
 3. Can an interpretable linear SVM remain competitive when combined with robust preprocessing, segmentation, and calibration?
 4. How reliable is the end-to-end workflow when transcription, semantic segmentation, classification, and summarization are integrated in one system?
-
-### 3.1 Main Objective
+3.1 Main Objective
 The main objective is to develop an action-item detection system for long meeting transcripts using a linear Support Vector Machine (SVM) model, while adding linguistic and contextual features, aiming to accurately identify actionable statements and enhance usability in terms of contexts of hybrid work in the Philippines.
-
-### 3.2 Specific Objectives
+3.2 Specific Objectives
 1.  To preprocess long-form meeting transcripts from AMI and Taglish-oriented corpora by applying cleaning techniques such as text normalization and sentence-level structuring to prepare consistent and high-quality inputs for action-item detection.
 2.  To extract and model linguistically relevant features, including dependency relations, discourse markers, sentence position, and verb modality, to improve action-item identification in multiparty conversations.
 3.  To develop and train a Linear Support Vector Machine (SVM) classifier using the engineered linguistic features and optimize model parameters through cross-validation to maximize precision and recall without degrading interpretability.
 4.  To evaluate the system using precision, recall, F1, confusion matrices, and precision-recall analysis across multiple test sets.
 5.  To integrate the trained linear SVM model into a fully functional action-item detection system that can process long meeting transcripts, produce role-agnostic predictions, and display extracted action items in an organized format suitable for practical deployment in hybrid work settings.
-
-## 4 SCOPE AND LIMITATIONS
+4 SCOPE AND LIMITATIONS
 This study covers the full meeting-intelligence pipeline implemented in the current system: audio and video transcription using Groq with local Whisper fallback, semantic transcript segmentation using embedding-based cosine boundaries with token constraints, sentence-level action-item classification using hashing-based features and incremental linear SVM, and abstractive summary generation using Groq or local BART fallback. Evaluation is performed across available AMI-focused, Taglish-focused, and stricter unique-split test sets. The primary modeled objective is action-item extraction, while summary generation is treated as a downstream support output for readability.
 
 Within this scope, several limitations remain. End-to-end output quality depends on upstream transcription quality, particularly in noisy or overlapped speech. Speaker attribution for explicit owner assignment is limited and is not the primary modeled target in the current version. Threshold operating points may shift across domains and therefore require periodic recalibration. Generalization to dialect-heavy or previously unseen domain styles may need additional retraining data. In live operation, real-time capture constraints, especially system-audio capture stability, can also affect reliability.
-
-## 5 CONTRIBUTIONS
+5 CONTRIBUTIONS
 1. A production-oriented four-phase architecture with failover transcription and failover summarization.
 2. Semantic segmentation with topic-coherent, token-bounded units to improve downstream classification context.
 3. Incremental linear SVM action classifier with configurable operating modes for threshold-aware deployment.
 4. Reproducible evaluation artifacts: PR curve, threshold tradeoff, confusion matrices, confidence distribution, data hygiene audit, and ablation outputs.
-
-## 6 METHODOLOGY
-### 6.1 Phase 1: Transcription
+6 METHODOLOGY
+6.1 Phase 1: Transcription
 The methodology begins with transcription, where raw meeting audio or video is converted into machine-processable text using a dual-engine strategy designed for runtime resilience. The primary path uses Groq transcription to leverage fast API-based speech recognition, while retry handling is applied to tolerate transient request failures and rate-limit events. When retries are exhausted or cloud access is unavailable, the pipeline automatically switches to a local Whisper model so that processing can continue without manual intervention. For long recordings and video files, chunked transcription is used to reduce timeout risk, improve memory stability, and maintain manageable processing windows. This design treats transcription as both a linguistic and systems-reliability stage, since downstream quality depends directly on transcript completeness and error rate.
-
-### 6.2 Phase 2: Semantic Segmentation
+6.2 Phase 2: Semantic Segmentation
 After transcription, the pipeline performs semantic segmentation to convert long transcripts into topic-coherent analytical units. The transcript is first normalized into sentence-like elements, then encoded with sentence embeddings so that local semantic continuity can be measured through cosine similarity between adjacent units. Topic boundaries are inserted when similarity drops below continuity expectations, and each segment is additionally constrained by a token budget to prevent oversized contexts that could degrade classification or summarization behavior. Alongside raw segment text, the system stores descriptive metadata such as token count, sentence count, and topical gist, enabling traceable downstream analysis and clearer interpretability during evaluation.
-
-### 6.3 Phase 3: Action-Item Classification
+6.3 Phase 3: Action-Item Classification
 In the third phase, each segmented sentence candidate is transformed into a hashing-based n-gram feature representation and classified using an incremental linear SVM trained with SGD hinge loss. The classifier produces a signed decision margin, where the decision function is defined as f(x) = w^T x + b, and the predicted label is determined by comparing this margin to an operating threshold tau. Inference therefore follows y_hat = 1 when f(x) >= tau, and y_hat = 0 otherwise. To support deployment flexibility, the system uses two threshold modes: a balanced mode for overall tradeoff stability and a high-recall mode that lowers the threshold to reduce missed commitments. The phase also applies sentence-boundary safeguards and optional Llama-based verification for uncertain cases, improving robustness when transcripts include fragmented or ambiguous conversational turns.
-
-### 6.4 Phase 4: Abstractive Summarization
+6.4 Phase 4: Abstractive Summarization
 In the final phase, extracted action items are combined with transcript context to generate a concise abstractive meeting summary intended for practical reporting and follow-up communication. The summarization module supports both Groq and local BART execution paths, with runtime fallback to preserve continuity when a selected engine fails. Importantly, the system keeps the extracted action-item list explicitly separate from the narrative summary output so that commitments remain auditable even if paraphrased text varies across summarization runs. This separation strengthens traceability and supports reliability during review, presentation, and deployment.
-
-### 6.5 Recursive Merging and MoM Construction
+6.5 Recursive Merging and MoM Construction
 After topic-level summaries are generated, the pipeline consolidates them into a unified meeting-level record through recursive merging. When the combined text remains within model token constraints, a final refinement pass is applied to improve cohesion and reduce redundancy before export. If the merged content exceeds model limits, the system treats the concatenated summaries as a new input and reapplies summarization iteratively until the output becomes compact enough for structured reporting. The resulting document is formatted as a meeting-ready output that includes synthesized discussion highlights and an explicit consolidated action-item list, preserving operational usability for follow-up tracking.
-
-### 6.6 Evaluation and Metrics
+6.6 Evaluation and Metrics
 To validate system quality and practical usefulness, evaluation combines quantitative performance analysis with interpretability-oriented inspection. The action-item classifier is assessed primarily through precision, recall, F1, confusion-matrix behavior, and precision-recall operating characteristics, including threshold tradeoff analysis between false positives and false negatives. In addition, confidence distribution and error taxonomy outputs are used to examine boundary behavior and common failure cases. For summary quality, text coherence and utility are assessed as supporting outputs, and optional automatic overlap-style metrics (for example, ROUGE or BERTScore when reference data is available) may be reported as supplementary evidence rather than primary success criteria. This evaluation design aligns model behavior with real deployment priorities while maintaining transparency for thesis defense and reproducibility.
-
-## 7 EQUATIONS AND MATHEMATICAL MODEL
+7 EQUATIONS AND MATHEMATICAL MODEL
 This section formalizes the core classifier and evaluation functions used in the system.
-
-### 7.1 Linear Decision Function
+7.1 Linear Decision Function
 For an input sentence feature vector x in hashed feature space:
 
 f(x) = w^T x + b
 
 Where w is the learned weight vector and b is the bias term.
-
-### 7.2 Thresholded Prediction Rule
+7.2 Thresholded Prediction Rule
 Given operating threshold tau:
 
 y_hat = 1 if f(x) >= tau, else 0
 
 1. tau = 0.0 corresponds to balanced mode in the reported main run.
 2. tau < 0 shifts toward high-recall mode by labeling more samples as action items.
-
-### 7.3 Margin-to-Confidence Mapping
+7.3 Margin-to-Confidence Mapping
 The implementation maps absolute margin to a confidence-like score using sigmoid:
 
 confidence = sigma(|f(x)|) = 1 / (1 + exp(-|f(x)|))
 
 This supports confidence distribution analysis and uncertainty-aware review.
-
-### 7.4 Incremental Linear SVM Objective (SGD Hinge)
+7.4 Incremental Linear SVM Objective (SGD Hinge)
 The classifier is trained incrementally with hinge loss and L2 regularization:
 
 min over w,b:  (lambda / 2) * ||w||^2 + (1/N) * sum max(0, 1 - y_i * (w^T x_i + b))
 
 Where y_i in {-1, +1} are transformed class labels.
-
-### 7.5 Evaluation Metric Equations
+7.5 Evaluation Metric Equations
 Given confusion-matrix counts TP, FP, FN:
 
 Precision = TP / (TP + FP)
@@ -130,8 +108,7 @@ Recall = TP / (TP + FN)
 F1 = 2 * Precision * Recall / (Precision + Recall)
 
 Average Precision / AUPRC summarizes precision-recall behavior over all thresholds.
-
-## 8 DATA PREPARATION AND QUALITY CONTROLS
+8 DATA PREPARATION AND QUALITY CONTROLS
 The training and evaluation workflow uses multilingual meeting datasets, including Taglish-heavy sources and AMI-style meeting corpora. Data hygiene is explicitly measured before model reporting:
 
 1. Rows before deduplication: 184,976
@@ -140,9 +117,8 @@ The training and evaluation workflow uses multilingual meeting datasets, includi
 4. Label conflict groups: 12
 
 These controls reduce leakage risk and improve label consistency transparency.
-
-## 9 EXPERIMENTAL SETUP
-### 9.1 Primary Metrics
+9 EXPERIMENTAL SETUP
+9.1 Primary Metrics
 Model quality is evaluated using:
 
 1. Precision
@@ -151,87 +127,70 @@ Model quality is evaluated using:
 4. Macro F1
 5. Precision-Recall curve and AUPRC
 6. Confusion matrices per operating mode
-
-### 9.2 Why PR-Centric Evaluation
+9.2 Why PR-Centric Evaluation
 Because action-item detection is cost-sensitive and potentially class-imbalanced, PR analysis is prioritized over accuracy-only reporting.
-
-## 10 RESULTS AND DISCUSSION
+10 RESULTS AND DISCUSSION
 This section reports findings in objective-based form so each research objective is directly answered by evidence.
-
-### 10.1 Objective-Based Findings
+10.1 Objective-Based Findings
 For Specific Objective 1 (preprocessing quality), data preparation controls produced 184,976 rows before deduplication and 64,144 rows after deduplication, with 120,832 duplicates removed and 12 conflict groups identified. This indicates that the preprocessing workflow successfully reduced duplicated training noise and improved label consistency before model fitting. For Specific Objective 2 (linguistic feature modeling), the classifier's stable decision behavior across multilingual splits and threshold settings indicates that the selected lexical and contextual feature representation can separate actionable commitments from informational dialogue under realistic meeting conditions.
 
 For Specific Objective 3 (SVM training and optimization), the trained linear SVM achieved strong threshold-sensitive ranking performance with AUPRC = 0.9162 in the primary run. This confirms that the incremental linear classifier remains competitive when combined with the proposed preprocessing and segmentation pipeline, while preserving interpretability and calibration control. For Specific Objective 4 (evaluation using precision, recall, F1, confusion matrices, and PR analysis), the reported operating points and error counts provide full evidence-based assessment rather than single-metric reporting.
 
 For Specific Objective 5 (integration into a usable end-to-end system), results across modes and datasets show that the model can be deployed in task-focused workflows with explicit control over error tradeoffs. The pipeline produces auditable action-item outputs and meeting-ready summaries, supporting practical use in hybrid work contexts.
-
-### 10.2 Precision-Recall and Operating-Point Analysis
+10.2 Precision-Recall and Operating-Point Analysis
 The primary evaluation run achieved AUPRC = 0.9162, indicating strong ranking quality for actionable versus non-actionable sentences across thresholds. At the balanced operating mode (tau = 0.0), the model achieved precision = 0.8080, recall = 0.9095, F1_action = 0.8558, FP = 43, and FN = 18. At the high-recall mode (tau = -0.0015), the model achieved precision = 0.8089, recall = 0.9146, F1_action = 0.8585, FP = 43, and FN = 17. This threshold shift reduced missed action items by one without increasing false alarms in the primary run.
-
-### 10.3 Confusion-Matrix Interpretation
+10.3 Confusion-Matrix Interpretation
 Confusion-matrix evidence further supports deployment interpretation. In balanced mode, TP = 181, TN = 158, FP = 43, and FN = 18. In high-recall mode, TP = 182, TN = 158, FP = 43, and FN = 17. These values show that the high-recall threshold captures one additional true action item at constant false-positive cost, which is preferable when the operational cost of missing commitments is higher than the cost of reviewing candidates.
-
-### 10.4 Cross-Domain and Generalization Behavior
+10.4 Cross-Domain and Generalization Behavior
 Cross-domain evaluation indicates heterogeneous difficulty across data regimes. The full Taglish set shows near-ceiling performance under distribution-aligned conditions, while the strictly unique Taglish split shows expected performance decline under harder generalization conditions. The AMI-focused run remains competitive and exhibits threshold-dependent tradeoffs consistent with the main evaluation. Together, these results answer the generalization-oriented objectives by showing that performance is strong but distribution-sensitive, supporting continued use of both in-distribution and stricter split evaluations.
-
-## 11 FIGURES, TABLES, AND DATA PRESENTATION
+11 FIGURES, TABLES, AND DATA PRESENTATION
 This section presents the visual and tabular evidence used in Chapter 4 to support objective-based interpretation. Each figure is selected for a specific decision question: overall ranking quality, threshold selection, error structure, uncertainty behavior, and cross-domain robustness.
-
-### 11.1 Primary Performance Curve
-**Figure 11.1. Precision-Recall Curve (Primary Evaluation Set).**
+11.1 Primary Performance Curve
+Figure 11.1. Precision-Recall Curve (Primary Evaluation Set).
 
 The precision-recall curve is used as the main threshold-sensitive view of classifier behavior because action-item detection is cost-sensitive and can be class-imbalanced. The reported AUPRC of 0.9162 indicates strong ranking quality across operating thresholds. This figure should be interpreted together with operating-point metrics to show both global ranking behavior and deployment-level outcomes.
-
-### 11.2 Threshold Tradeoff for Deployment
-**Figure 11.2. FN-versus-FP Threshold Tradeoff.**
+11.2 Threshold Tradeoff for Deployment
+Figure 11.2. FN-versus-FP Threshold Tradeoff.
 
 The threshold tradeoff plot is included to justify operating mode selection based on practical cost. In the primary run, switching from balanced mode to high-recall mode reduced missed actions from 18 to 17 while keeping false positives unchanged at 43. This evidence supports high-recall deployment when the cost of missing commitments is higher than the cost of reviewing candidate alarms.
-
-### 11.3 Confusion Matrix by Operating Mode
-**Figure 11.3. Confusion Matrix (Balanced Mode).**  
-**Figure 11.4. Confusion Matrix (High-Recall Mode).**
+11.3 Confusion Matrix by Operating Mode
+Figure 11.3. Confusion Matrix (Balanced Mode).  
+Figure 11.4. Confusion Matrix (High-Recall Mode).
 
 The paired confusion matrices show class-level error redistribution as threshold policy changes. In balanced mode, the model yields TP=181, TN=158, FP=43, FN=18. In high-recall mode, TP increases to 182 and FN drops to 17 while FP remains 43. Presenting both matrices side-by-side gives a transparent explanation of how threshold policy affects operational outcomes.
-
-### 11.4 Confidence Distribution and Boundary Behavior
-**Figure 11.5. Confidence Score Distribution (TP, FP, FN).**
+11.4 Confidence Distribution and Boundary Behavior
+Figure 11.5. Confidence Score Distribution (TP, FP, FN).
 
 The confidence distribution plot shows where true positives, false positives, and false negatives concentrate relative to the decision boundary. This figure supports interpretability by identifying uncertainty regions that are sensitive to threshold calibration and manual review policy. It also motivates why threshold tuning is treated as a deployment control mechanism rather than a one-time fixed constant.
-
-### 11.5 Cross-Domain Robustness Figures
-**Figure 11.6 to Figure 11.14. Cross-Domain PR Curves, Tradeoff Plots, and Confusion Matrices (AMI, Full Taglish, Strictly Unique Taglish).**
+11.5 Cross-Domain Robustness Figures
+Figure 11.6 to Figure 11.14. Cross-Domain PR Curves, Tradeoff Plots, and Confusion Matrices (AMI, Full Taglish, Strictly Unique Taglish).
 
 To evaluate generalization, the same visual triplet (precision-recall curve, threshold tradeoff plot, balanced-mode confusion matrix) is presented across AMI-focused, full Taglish, and strictly unique Taglish splits. This standardized comparison highlights distribution sensitivity and prevents conclusions from relying on a single favorable split. The strict unique Taglish split serves as the hardest setting and provides a realistic stress test for robustness claims.
-
-### 11.6 Supporting Tables for Reproducibility
-**Table 11.1. Threshold Operating Points.**  
-**Table 11.2. Ablation Study Results.**  
-**Table 11.3. Data Hygiene Summary.**
+11.6 Supporting Tables for Reproducibility
+Table 11.1. Threshold Operating Points.  
+Table 11.2. Ablation Study Results.  
+Table 11.3. Data Hygiene Summary.
 
 The operating-points table anchors figure interpretation with exact precision, recall, F1, FP, and FN values per mode. The ablation table reports the relative contribution of key feature-design choices, supporting methodology claims with controlled comparisons. The data-hygiene table documents deduplication and label-conflict statistics (184,976 raw rows, 64,144 rows after deduplication, 120,832 duplicates removed, 12 conflict groups), strengthening internal validity and reproducibility. Together, these tables ensure that all chapter-level visual claims are numerically auditable.
-
-## 12 THREATS TO VALIDITY
+12 THREATS TO VALIDITY
 1. Transcription quality variance can propagate errors to segmentation and classification.
 2. Dataset overlap and synthetic patterns may inflate easier-split performance.
 3. Threshold tuning can overfit a single validation distribution if not monitored across held-out subsets.
 4. Multilingual coverage remains strongest for English-Tagalog mixtures and may require adaptation for other dialect-heavy settings.
-
-## 13 CONCLUSION
-### 13.1 Summary of Findings
+13 CONCLUSION
+13.1 Summary of Findings
 This study confirms that an interpretable, threshold-calibrated linear SVM can be effectively deployed for action-item detection in long multilingual meeting transcripts when embedded in a robust four-phase pipeline. The proposed architecture combines transcription fallback, semantic segmentation, action-item classification, and abstractive summarization to produce auditable and deployment-ready outputs for hybrid work settings. In this way, the system answers the thesis requirement for a practical workflow that does not depend entirely on opaque black-box behavior.
 
 The quantitative findings support the model's effectiveness under threshold-sensitive evaluation. The primary run achieved AUPRC = 0.9162, indicating strong ranking quality across decision thresholds. At operating-point level, moving from balanced mode to high-recall mode reduced false negatives from 18 to 17 while keeping false positives fixed at 43, showing that the system can improve recall without adding review burden in the observed setting. This tradeoff behavior strengthens the claim that deployment policy can be tuned according to organizational cost priorities.
 
 The study also demonstrates that reliability depends on both modeling and dataset governance. Data hygiene controls reduced 184,976 raw rows to 64,144 deduplicated rows and documented 12 conflict groups for label-consistency review, improving reproducibility and internal validity. Cross-domain results showed strong in-distribution behavior and expected degradation under stricter unique-split conditions, which is consistent with realistic distribution shift. Overall, the findings indicate that the proposed pipeline is robust for practical use, while still requiring periodic calibration and data refresh for sustained performance.
-
-## 14 RECOMMENDATIONS
+14 RECOMMENDATIONS
 Future improvements should prioritize statistically grounded reporting so that performance claims remain stable across repeated experiments. The next version of the evaluation protocol should include bootstrap-based confidence intervals for AUPRC, precision, recall, and F1, together with clearer uncertainty summaries for threshold operating points. This will make the system's behavior easier to defend in academic review and easier to govern in deployment decisions.
 
 Generalization testing should also be expanded beyond current splits to better reflect real-world drift. Additional unseen-domain and hard-split evaluations are recommended, especially for dialect-heavy and mixed-style meetings where phrasing patterns differ from training distributions. At runtime level, live-mode reliability should be strengthened through improved system-audio capture handling and stress-test logging for long sessions with noise and speaker overlap.
 
 From a product-utility perspective, the system should evolve from sentence-level detection toward richer workflow support. A speaker-aware ownership layer should be added so predicted action items can be linked to likely assignees, improving accountability in generated meeting outputs. In parallel, experiment tracking should be institutionalized with explicit dataset, model, threshold, and run-version metadata so future retraining, threshold governance, and longitudinal audits remain reproducible.
-
-## Appendix A: Replace-Now Fixes for the Existing Draft
+Appendix A: Replace-Now Fixes for the Existing Draft
 Use this checklist when transferring this revision into the original manuscript:
 
 1. Replace "six-phase methodology" with the current four-phase pipeline.
@@ -241,70 +200,4 @@ Use this checklist when transferring this revision into the original manuscript:
 5. Align scope wording with current runtime: file mode, live mode, and training mode.
 6. Keep action-item extraction as primary objective, summarization as support objective.
 
-## 15 PROJECT DESIGN OF THE STUDY
-This section presents the implementation-aligned project design used in the thesis. The design follows a core four-phase pipeline (transcription, segmentation, classification, summarization), then extends into recursive consolidation and quantitative evaluation for auditability and deployment readiness.
 
-### 15.1 Phase-Based Design Flow
-The project design is organized into six connected phases:
-
-1. Phase 1: Data Acquisition and Transcription (Groq-first, local Whisper fallback).
-2. Phase 2: Semantic Segmentation (cosine-based topical boundaries with token control).
-3. Phase 3: Action-Item Classification (hashing features plus incremental linear SVM with threshold modes).
-4. Phase 4: Abstractive Summarization (Groq/local fallback with action list preserved separately).
-5. Phase 5: Recursive Merging and MoM Construction (topic summaries merged into a final meeting-level output).
-6. Phase 6: Evaluation and Artifact Generation (PR curve, tradeoff, confusion matrices, confidence distribution, taxonomy, ablation, and hygiene audit).
-
-### 15.2 Figure 15.1 Project Design Diagram
-```mermaid
-flowchart LR
-	A0[Input Meeting Audio or File]
-
-	subgraph P1[PHASE 1: DATA ACQUISITION AND TRANSCRIPTION]
-		A1[Engine Selection<br/>Groq or Local Whisper]
-		A2[Chunking and Retry Handling]
-		A3[Transcript Output]
-		A1 --> A2 --> A3
-	end
-
-	subgraph P2[PHASE 2: SEMANTIC SEGMENTATION]
-		B1[Sentence Unit Split]
-		B2[Embedding and Cosine Boundary Detection]
-		B3[Topic Segments with Metadata]
-		B1 --> B2 --> B3
-	end
-
-	subgraph P3[PHASE 3: ACTION-ITEM CLASSIFICATION]
-		C1[HashingVectorizer Features]
-		C2[Incremental Linear SVM Decision]
-		C3[Balanced or High-Recall Threshold Mode]
-		C1 --> C2 --> C3
-	end
-
-	subgraph P4[PHASE 4: ABSTRACTIVE SUMMARIZATION]
-		D1[Context plus Extracted Actions]
-		D2[Groq or Local BART Summarization]
-		D3[Topic-Level Summary Output]
-		D1 --> D2 --> D3
-	end
-
-	subgraph P5[PHASE 5: RECURSIVE MERGING AND MOM CONSTRUCTION]
-		E1[Merge Topic Summaries]
-		E2[Token-Budget Check and Recursive Refinement]
-		E3[Final Meeting Summary and Consolidated Actions]
-		E1 --> E2 --> E3
-	end
-
-	subgraph P6[PHASE 6: EVALUATION AND ARTIFACT GENERATION]
-		F1[Operating Points and Tradeoff Analysis]
-		F2[PR Curve and Confusion Matrices]
-		F3[Ablation, Taxonomy, and Data Hygiene Tables]
-		F1 --> F2 --> F3
-	end
-
-	A0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6
-```
-
-*Figure 15.1. Project Design of the Study.*
-
-### 15.3 Design Rationale
-The design separates model inference, summarization, and evaluation into explicit phases so each stage can be independently validated and tuned. Threshold-based operating modes provide deployment control over false positives versus false negatives, while the final evaluation phase ensures all visual claims are numerically auditable through reproducible artifacts.

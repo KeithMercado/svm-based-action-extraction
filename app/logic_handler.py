@@ -16,6 +16,7 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.feature_extraction.text import HashingVectorizer
 from app.export_service import ExportService
 from core.segmenter import Segmenter
+from src.components.pdf_layout_editor import PDFLayoutEditorDialog
 
 try:
     from integrations.groq.transcribe import transcribe_with_groq
@@ -60,6 +61,7 @@ class AppLogic:
         self.live_transcribe_prompt = (
             "This is a Taglish meeting transcript involving technical tasks and action items."
         )
+        self._last_ui_speaker_label = None
 
     def _format_secs(self, seconds):
         return f"{seconds:.1f}s"
@@ -467,6 +469,9 @@ class AppLogic:
         def worker():
             try:
                 result = self._process_file_to_pdf(file_path)
+                if result.get("cancelled"):
+                    self.view.after(0, self._append_system_text, "PDF generation cancelled.")
+                    return
                 self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {result['text']}")
                 self.view.after(0, self._append_system_text, f"PDF generated: {result['pdf_path']}")
                 self.view.after(
@@ -500,6 +505,22 @@ class AppLogic:
                 topics.append(topic)
         
         return topics if topics else None
+
+    def _prompt_pdf_layout_config(self, action_items):
+        """Open a modal layout editor on the UI thread and return export preferences."""
+        done_event = threading.Event()
+        result_holder = {"result": None}
+
+        def open_dialog():
+            try:
+                dialog = PDFLayoutEditorDialog(self.view, action_items=action_items)
+                result_holder["result"] = dialog.show_modal()
+            finally:
+                done_event.set()
+
+        self.view.after(0, open_dialog)
+        done_event.wait()
+        return result_holder["result"]
 
     def _process_file_to_pdf(self, file_path):
         t_start = time.perf_counter()
@@ -545,14 +566,42 @@ class AppLogic:
                 seen.add(key)
                 unique_actions.append(item.strip())
 
+        llama_action_items = self.exporter.formatter.extract_llama_action_items(combined_summary)
+        editor_action_items = []
+        seen_editor = set()
+        for item in unique_actions + llama_action_items:
+            key = re.sub(r"\s+", " ", item.strip().lower())
+            if key and key not in seen_editor:
+                seen_editor.add(key)
+                editor_action_items.append(item.strip())
+
+        layout_config = self._prompt_pdf_layout_config(editor_action_items)
+        if layout_config is None:
+            return {
+                "cancelled": True,
+                "text": text,
+                "timings": {
+                    "transcription": transcribe_time,
+                    "summarization": summarize_time,
+                    "pdf": 0.0,
+                    "total": time.perf_counter() - t_start,
+                },
+            }
+
+        selected_actions = layout_config.get("selected_action_items", unique_actions)
+        section_order = layout_config.get("section_order")
+        include_sections = layout_config.get("include_sections")
+
         t2 = time.perf_counter()
         pdf_path = self.exporter.generate_pdf(
             content=text,
-            action_items=unique_actions,
+            action_items=selected_actions,
             summary=combined_summary,
             duration_seconds=media_duration_seconds,
             source_file=file_path,
             topics=topic_labels,
+            section_order=section_order,
+            include_sections=include_sections,
         )
         pdf_time = time.perf_counter() - t2
 
@@ -577,6 +626,7 @@ class AppLogic:
     def _start_live_recording(self):
         self.audio.start_stream(live_transcription=True, live_transcriber=self._groq_live_transcribe)
         self.view.is_recording = True
+        self._last_ui_speaker_label = None
         self._ensure_transcript_ready()
         self.view.status_indicator.configure(text="● RECORDING", text_color="#ff4b4b")
         self.view.btn_record.configure(image=self.view.stop_icon, command=self.handle_stop, border_color="#ff4b4b")
@@ -633,6 +683,9 @@ class AppLogic:
         def worker():
             try:
                 result = self._process_file_to_pdf(saved_path)
+                if result.get("cancelled"):
+                    self.view.after(0, self._append_system_text, "PDF generation cancelled.")
+                    return
                 self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {result['text']}")
                 self.view.after(0, self._append_system_text, f"PDF generated: {result['pdf_path']}")
                 self.view.after(
@@ -699,17 +752,37 @@ class AppLogic:
         """Inserts text with Cyan timestamps while keeping the box uneditable."""
         # 1. Unlock the box
         self.view.transcript_box.configure(state="normal")
-        
+
         # 2. Stylized insertion (Timestamp in Cyan, Content in White)
-        if "]" in text:
+        if "]" not in text:
+            self.view.transcript_box.insert("end", f"{text}\n")
+        else:
             parts = text.split("]", 1)
             timestamp = parts[0] + "]"
-            content = parts[1]
-            # Use the 'timestamp' tag defined in gui.py for the cyan color
-            self.view.transcript_box.insert("end", timestamp, "timestamp")
-            self.view.transcript_box.insert("end", f" {content.strip()}\n")
-        else:
-            self.view.transcript_box.insert("end", f"{text}\n")
+            content = parts[1].strip()
+
+            speaker_match = re.match(r"^(Speaker\s+\d+|Multiple Speakers)\s*:\s*(.+)$", content)
+            if speaker_match:
+                speaker_label = speaker_match.group(1).strip()
+                transcript_text = speaker_match.group(2).strip()
+
+                # Emit speaker header only when turn changes.
+                if speaker_label != self._last_ui_speaker_label:
+                    speaker_tag = "speaker_multi"
+                    if speaker_label == "Speaker 1":
+                        speaker_tag = "speaker_1"
+                    elif speaker_label == "Speaker 2":
+                        speaker_tag = "speaker_2"
+                    self.view.transcript_box.insert("end", f"[{speaker_label}]\n", speaker_tag)
+                    self._last_ui_speaker_label = speaker_label
+
+                # Always emit the timestamped transcript line.
+                self.view.transcript_box.insert("end", timestamp, "timestamp")
+                self.view.transcript_box.insert("end", f" {transcript_text}\n")
+            else:
+                self._last_ui_speaker_label = None
+                self.view.transcript_box.insert("end", timestamp, "timestamp")
+                self.view.transcript_box.insert("end", f" {content}\n")
             
         # 3. Auto-scroll and Lock
         self.view.transcript_box.see("end")

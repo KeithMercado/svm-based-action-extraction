@@ -1,0 +1,105 @@
+sentence,label,source_file,sentence_raw,sentence_norm
+could you plug me in ?,1,ami_dialogueActs_dataset.csv,Could you plug me in ?,could you plug me in ?
+would you like me to spell that ?,1,ami_dialogueActs_dataset.csv,Would you like me to spell that ?,would you like me to spell that ?
+"we'll sta i'll use the powerpoint , i guess .",1,ami_dialogueActs_dataset.csv,"We'll sta I'll use the PowerPoint , I guess .","we'll sta i'll use the powerpoint , i guess ."
+"um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?",1,ami_dialogueActs_dataset.csv,"Um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?","um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?"
+"'kay so we'll try to zip through this , since we're short on time .",1,ami_dialogueActs_dataset.csv,"'Kay so we'll try to zip through this , since we're short on time .","'kay so we'll try to zip through this , since we're short on time ."
+"and , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing .",1,ami_dialogueActs_dataset.csv,"And , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing .","and , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing ."
+um i'll go ahead and go through the minutes from the previous meeting .,1,ami_dialogueActs_dataset.csv,Um I'll go ahead and go through the minutes from the previous meeting .,um i'll go ahead and go through the minutes from the previous meeting .
+check check check check .,0,ami_dialogueActs_dataset.csv,Check check check check .,check check check check .
+um once again i will try to uh write some minutes,1,ami_dialogueActs_dataset.csv,Um once again I will try to uh write some minutes,um once again i will try to uh write some minutes
+first we have to make a functional design .,1,ami_dialogueActs_dataset.csv,First we have to make a functional design .,first we have to make a functional design .
+"after that we have to make a conceptual design ,",1,ami_dialogueActs_dataset.csv,"After that we have to make a conceptual design ,","after that we have to make a conceptual design ,"
+and then after that a detailed design .,1,ami_dialogueActs_dataset.csv,and then after that a detailed design .,and then after that a detailed design .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+first we have to make a functional design .,0,ami_multilingual_balanced.csv,First we have to make a functional design .,first we have to make a functional design .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+would you like me to spell that ?,0,ami_multilingual_balanced.csv,Would you like me to spell that ?,would you like me to spell that ?
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+"um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?",0,ami_multilingual_balanced.csv,"Um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?","um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?"
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+"and , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing .",0,ami_multilingual_balanced.csv,"And , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing .","and , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing ."
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+could you plug me in ?,0,ami_multilingual_balanced.csv,Could you plug me in ?,could you plug me in ?
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+"'kay so we'll try to zip through this , since we're short on time .",0,ami_multilingual_balanced.csv,"'Kay so we'll try to zip through this , since we're short on time .","'kay so we'll try to zip through this , since we're short on time ."
+um once again i will try to uh write some minutes,0,ami_multilingual_balanced.csv,Um once again I will try to uh write some minutes,um once again i will try to uh write some minutes
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+"we'll sta i'll use the powerpoint , i guess .",0,ami_multilingual_balanced.csv,"We'll sta I'll use the PowerPoint , I guess .","we'll sta i'll use the powerpoint , i guess ."
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+um i'll go ahead and go through the minutes from the previous meeting .,0,ami_multilingual_balanced.csv,Um I'll go ahead and go through the minutes from the previous meeting .,um i'll go ahead and go through the minutes from the previous meeting .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+"after that we have to make a conceptual design ,",0,ami_multilingual_balanced.csv,"After that we have to make a conceptual design ,","after that we have to make a conceptual design ,"
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+check check check check .,1,ami_multilingual_balanced.csv,Check check check check .,check check check check .
+and then after that a detailed design .,0,ami_multilingual_balanced.csv,and then after that a detailed design .,and then after that a detailed design .
+could you plug me in ?,0,ami_multilingual_resistant_dataset.csv,Could you plug me in ?,could you plug me in ?
+would you like me to spell that ?,0,ami_multilingual_resistant_dataset.csv,Would you like me to spell that ?,would you like me to spell that ?
+"we'll sta i'll use the powerpoint , i guess .",0,ami_multilingual_resistant_dataset.csv,"We'll sta I'll use the PowerPoint , I guess .","we'll sta i'll use the powerpoint , i guess ."
+"um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?",0,ami_multilingual_resistant_dataset.csv,"Um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?","um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?"
+"'kay so we'll try to zip through this , since we're short on time .",0,ami_multilingual_resistant_dataset.csv,"'Kay so we'll try to zip through this , since we're short on time .","'kay so we'll try to zip through this , since we're short on time ."
+"and , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing .",0,ami_multilingual_resistant_dataset.csv,"And , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing .","and , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing ."
+um i'll go ahead and go through the minutes from the previous meeting .,0,ami_multilingual_resistant_dataset.csv,Um I'll go ahead and go through the minutes from the previous meeting .,um i'll go ahead and go through the minutes from the previous meeting .
+check check check check .,1,ami_multilingual_resistant_dataset.csv,Check check check check .,check check check check .
+um once again i will try to uh write some minutes,0,ami_multilingual_resistant_dataset.csv,Um once again I will try to uh write some minutes,um once again i will try to uh write some minutes
+first we have to make a functional design .,0,ami_multilingual_resistant_dataset.csv,First we have to make a functional design .,first we have to make a functional design .
+"after that we have to make a conceptual design ,",0,ami_multilingual_resistant_dataset.csv,"After that we have to make a conceptual design ,","after that we have to make a conceptual design ,"
+and then after that a detailed design .,0,ami_multilingual_resistant_dataset.csv,and then after that a detailed design .,and then after that a detailed design .
+um i'll go ahead and go through the minutes from the previous meeting .,1,mixed_all_datafolder_eval.csv,Um I'll go ahead and go through the minutes from the previous meeting .,um i'll go ahead and go through the minutes from the previous meeting .
+would you like me to spell that ?,1,mixed_all_datafolder_eval.csv,Would you like me to spell that ?,would you like me to spell that ?
+"after that we have to make a conceptual design ,",1,mixed_all_datafolder_eval.csv,"After that we have to make a conceptual design ,","after that we have to make a conceptual design ,"
+check check check check .,1,mixed_all_datafolder_eval.csv,Check check check check .,check check check check .
+first we have to make a functional design .,1,mixed_all_datafolder_eval.csv,First we have to make a functional design .,first we have to make a functional design .
+"'kay so we'll try to zip through this , since we're short on time .",1,mixed_all_datafolder_eval.csv,"'Kay so we'll try to zip through this , since we're short on time .","'kay so we'll try to zip through this , since we're short on time ."
+"we'll sta i'll use the powerpoint , i guess .",1,mixed_all_datafolder_eval.csv,"We'll sta I'll use the PowerPoint , I guess .","we'll sta i'll use the powerpoint , i guess ."
+could you plug me in ?,1,mixed_all_datafolder_eval.csv,Could you plug me in ?,could you plug me in ?
+"and , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing .",1,mixed_all_datafolder_eval.csv,"And , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing .","and , um , then we have to make some key decisions on , on our remote control concept , and how we're gonna make it , what uh materials we're gonna use , and that sort of thing ."
+and then after that a detailed design .,1,mixed_all_datafolder_eval.csv,and then after that a detailed design .,and then after that a detailed design .
+"um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?",1,mixed_all_datafolder_eval.csv,"Um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?","um , would you like me to talk about my aims at the moment , or would you like me to just say my name and then we can talk about business later ?"
+um once again i will try to uh write some minutes,1,mixed_all_datafolder_eval.csv,Um once again I will try to uh write some minutes,um once again i will try to uh write some minutes

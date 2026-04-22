@@ -585,7 +585,7 @@ class ActionItemClassifier:
                 f"  {status} (student_conf={result['student_confidence']:.2f}, source={model_llama_tag}): {sentence}"
             )
             if result["model_llama_label"] is not None:
-                print(f"    -> Model-Lllama label: {result['model_llama_label']}")
+                print(f"    -> Model label: {result['model_llama_label']}")
 
         return {
             "transcript": raw_text,

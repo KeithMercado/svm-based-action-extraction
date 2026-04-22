@@ -19,6 +19,11 @@ class AudioHandler:
         self.live_silence_seconds = float(os.getenv("LIVE_VAD_SILENCE_SECONDS", "0.7"))
         self.live_force_flush_seconds = float(os.getenv("LIVE_FORCE_TRANSCRIBE_SECONDS", "10.0"))
         self.live_min_transcribe_seconds = float(os.getenv("LIVE_MIN_TRANSCRIBE_SECONDS", "1.2"))
+        self.live_speaker_dominance_ratio = float(os.getenv("LIVE_SPEAKER_DOMINANCE_RATIO", "1.2"))
+        self.live_speaker_overlap_ratio = float(os.getenv("LIVE_SPEAKER_OVERLAP_RATIO", "0.85"))
+        self.live_mic_speaker_label = os.getenv("LIVE_MIC_SPEAKER_LABEL", "Speaker 1")
+        self.live_system_speaker_label = os.getenv("LIVE_SYSTEM_SPEAKER_LABEL", "Speaker 2")
+        self.live_overlap_speaker_label = os.getenv("LIVE_OVERLAP_SPEAKER_LABEL", "Multiple Speakers")
 
         self.current_volume = 0
         self.audio_queue = queue.Queue(maxsize=120)
@@ -30,6 +35,8 @@ class AudioHandler:
         self.live_transcriber = None
         self.all_audio_data = []
         self._last_live_text = ""
+        self._last_live_speaker = None
+        self._last_dominant_speaker = None
         self.start_time = None
         self.elapsed_offset_seconds = 0.0
         self.mic_is_muted = False
@@ -189,9 +196,14 @@ class AudioHandler:
                 mixed_chunk = (system_data * 0.5) + (mic_data * 0.5)
 
             mixed_chunk = self._normalize_audio_chunk(mixed_chunk.astype(np.float32))
+            system_energy = float(np.sqrt(np.mean(np.square(system_data)))) if system_data.size else 0.0
+            mic_energy = float(np.sqrt(np.mean(np.square(mic_data)))) if mic_data.size else 0.0
 
             self.current_volume = np.linalg.norm(mixed_chunk) * 18
-            self._safe_queue_put(self.audio_queue, mixed_chunk.copy())
+            self._safe_queue_put(
+                self.audio_queue,
+                (mixed_chunk.copy(), system_energy, mic_energy),
+            )
             self.all_audio_data.append(mixed_chunk.reshape(-1, 1))
 
     def _create_audio_interface(self):
@@ -238,6 +250,8 @@ class AudioHandler:
             self.elapsed_offset_seconds = 0.0
 
         self._last_live_text = ""
+        self._last_live_speaker = None
+        self._last_dominant_speaker = None
         self.start_time = time.time() - (self.elapsed_offset_seconds if continue_timing else 0.0)
 
         self._drain_queue(self.audio_queue)
@@ -299,6 +313,47 @@ class AudioHandler:
         energy = float(np.sqrt(np.mean(np.square(audio_chunk)))) if audio_chunk.size else 0.0
         return energy >= self.live_vad_energy_threshold
 
+    def _detect_dominant_speaker(self, system_energy, mic_energy, has_voice):
+        if not has_voice:
+            return None
+
+        if self.mic_is_muted:
+            return "system"
+
+        ratio = max(1.01, self.live_speaker_dominance_ratio)
+        if mic_energy >= (system_energy * ratio):
+            return "mic"
+        if system_energy >= (mic_energy * ratio):
+            return "system"
+
+        if mic_energy > 0 and system_energy > 0:
+            lower = min(mic_energy, system_energy)
+            higher = max(mic_energy, system_energy)
+            if higher > 0 and (lower / higher) >= self.live_speaker_overlap_ratio:
+                return "overlap"
+
+        return self._last_dominant_speaker
+
+    def _resolve_turn_speaker(self, dominant_speakers):
+        counts = {"mic": 0, "system": 0, "overlap": 0}
+        for label in dominant_speakers:
+            if label in counts:
+                counts[label] += 1
+
+        top_label = max(counts, key=counts.get)
+        if counts[top_label] == 0:
+            if self._last_dominant_speaker == "mic":
+                return self.live_mic_speaker_label
+            if self._last_dominant_speaker == "system":
+                return self.live_system_speaker_label
+            return self.live_overlap_speaker_label
+
+        if top_label == "mic":
+            return self.live_mic_speaker_label
+        if top_label == "system":
+            return self.live_system_speaker_label
+        return self.live_overlap_speaker_label
+
     def _transcription_loop(self):
         print("[Debug]: Transcription Loop Started.")
         if self.live_transcriber is None:
@@ -306,19 +361,33 @@ class AudioHandler:
             return
 
         recorded_chunks = []
+        dominant_speakers = []
         buffered_samples = 0
         silence_samples = 0
         detected_speech = False
         
         while self.is_listening:
             try:
-                audio_chunk = self.audio_queue.get(timeout=1)
+                queue_item = self.audio_queue.get(timeout=1)
+                if isinstance(queue_item, tuple) and len(queue_item) == 3:
+                    audio_chunk, system_energy, mic_energy = queue_item
+                else:
+                    # Backward-compatible fallback for older queue payloads.
+                    audio_chunk = queue_item
+                    system_energy = 0.0
+                    mic_energy = 0.0
+
                 elapsed_time = time.time() - self.start_time
                 recorded_chunks.append(audio_chunk)
                 chunk_samples = len(audio_chunk)
                 buffered_samples += chunk_samples
 
                 has_voice = self._chunk_has_voice(audio_chunk)
+                dominant = self._detect_dominant_speaker(system_energy, mic_energy, has_voice)
+                if dominant:
+                    self._last_dominant_speaker = dominant
+                    dominant_speakers.append(dominant)
+
                 if has_voice:
                     detected_speech = True
                     silence_samples = 0
@@ -343,17 +412,20 @@ class AudioHandler:
                 if should_flush:
                     full_buffer = np.concatenate(recorded_chunks)
                     recorded_chunks = []
+                    turn_speaker = self._resolve_turn_speaker(dominant_speakers)
+                    dominant_speakers = []
                     buffered_samples = 0
                     silence_samples = 0
                     detected_speech = False
 
                     external_text = self.live_transcriber(full_buffer, self.sample_rate)
                     cleaned = self._normalize_live_text(external_text)
-                    if cleaned and cleaned != self._last_live_text:
+                    if cleaned and (cleaned != self._last_live_text or turn_speaker != self._last_live_speaker):
                         self._last_live_text = cleaned
+                        self._last_live_speaker = turn_speaker
                         mins, secs = divmod(int(elapsed_time), 60)
                         timestamp = f"[{mins:02d}:{secs:02d}]"
-                        self.text_queue.put(f"{timestamp} {cleaned}")
+                        self.text_queue.put(f"{timestamp} {turn_speaker}: {cleaned}")
             except queue.Empty:
                 continue
             except Exception as e:
@@ -364,13 +436,15 @@ class AudioHandler:
             try:
                 full_buffer = np.concatenate(recorded_chunks)
                 elapsed_time = time.time() - self.start_time if self.start_time else 0
+                turn_speaker = self._resolve_turn_speaker(dominant_speakers)
                 external_text = self.live_transcriber(full_buffer, self.sample_rate)
                 cleaned = self._normalize_live_text(external_text)
-                if cleaned and cleaned != self._last_live_text:
+                if cleaned and (cleaned != self._last_live_text or turn_speaker != self._last_live_speaker):
                     self._last_live_text = cleaned
+                    self._last_live_speaker = turn_speaker
                     mins, secs = divmod(int(elapsed_time), 60)
                     timestamp = f"[{mins:02d}:{secs:02d}]"
-                    self.text_queue.put(f"{timestamp} {cleaned}")
+                    self.text_queue.put(f"{timestamp} {turn_speaker}: {cleaned}")
             except Exception as e:
                 self.text_queue.put(f"[System] Live transcription warning: {e}")
 
