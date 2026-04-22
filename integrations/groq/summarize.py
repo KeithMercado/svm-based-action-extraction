@@ -28,7 +28,7 @@ def summarize_with_groq(text: str, action_items: list[str] | None = None, model:
     )
 
     user_prompt = (
-        "Summarize the meeting content below in 3-6 sentences. "
+        "Summarize the meeting content below, do not include any additional text/symbols such as quotations. "
         "Then add a section exactly named 'Action Items:' and list only concrete, assigned, actionable tasks as bullet points ('- ...'). "
         "Do not include general discussion points in Action Items. "
         "If no clear action items exist, write exactly '- None identified'.\n\n"

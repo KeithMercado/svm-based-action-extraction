@@ -94,7 +94,6 @@ def transcribe_with_groq_chunked(
             chunk_pattern,
         ]
 
-        print("[System] Preparing compressed chunks for Groq...")
         prep = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, check=False)
         if prep.returncode != 0:
             print("[System] ffmpeg chunking failed. Falling back to direct Groq upload.")
@@ -118,9 +117,7 @@ def transcribe_with_groq_chunked(
         texts = []
         total = len(chunk_files)
         for idx, chunk_file in enumerate(chunk_files, start=1):
-            print(
-                f"[System] Groq chunk {idx}/{total}: {os.path.basename(chunk_file)}"
-            )
+            print(f"Chunk {idx}/{total}")
             from core.transcriber import Transcriber
 
             transcriber = Transcriber()

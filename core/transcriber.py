@@ -136,9 +136,6 @@ class Transcriber:
             if is_video_file(filename) or size_mb > 12:
                 segment_seconds = int(os.getenv("GROQ_SEGMENT_SECONDS", "120"))
                 segment_seconds = max(30, min(segment_seconds, 300))
-                print(
-                    f"[System] Using fast chunked Groq mode (size={size_mb:.1f} MB, chunk={segment_seconds}s)..."
-                )
                 from utils.audio_utils import transcribe_with_groq_chunked
 
                 return transcribe_with_groq_chunked(

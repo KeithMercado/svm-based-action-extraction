@@ -5,6 +5,8 @@ Handles semantic cosine segmentation of transcribed meeting text.
 
 import os
 import re
+import logging
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
@@ -13,6 +15,11 @@ try:
     from sentence_transformers import SentenceTransformer
 except Exception:  # pragma: no cover - optional dependency
     SentenceTransformer = None
+
+try:
+    from transformers import logging as hf_transformers_logging
+except Exception:  # pragma: no cover - optional dependency
+    hf_transformers_logging = None
 
 try:
     from dotenv import load_dotenv
@@ -84,6 +91,15 @@ class Segmenter:
                 "Missing dependency: sentence-transformers. Run: pip install sentence-transformers"
             )
 
+        # Silence non-critical Hugging Face/transformers model-load warnings in CLI output.
+        logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+        logging.getLogger("transformers").setLevel(logging.ERROR)
+        logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
+        warnings.filterwarnings("ignore", message=r".*HF Hub.*")
+        warnings.filterwarnings("ignore", message=r".*UNEXPECTED.*")
+        if hf_transformers_logging is not None:
+            hf_transformers_logging.set_verbosity_error()
+
         self.embedding_model = SentenceTransformer(self.embedding_model_name)
         return self.embedding_model
 
@@ -134,7 +150,7 @@ class Segmenter:
 
         try:
             client = Groq(api_key=api_key)
-            system_prompt = "Summarize the core topic of this meeting segment in under 10 words."
+            system_prompt = "Summarize the core topic of this meeting segment in under 10 words, do not include any additional text/symbols such as quotations."
             user_prompt = f"Meeting segment:\n{segment_text[:12000]}"
 
             result = client.chat.completions.create(

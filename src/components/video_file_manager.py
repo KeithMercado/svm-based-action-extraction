@@ -267,6 +267,21 @@ class VideoFileManager(ctk.CTkToplevel):
             try:
                 if app_logic is not None:
                     result_data = app_logic.process_file_path_for_pdf(file_path)
+                    if result_data.get("cancelled"):
+                        self.after(
+                            0,
+                            lambda: self._finish_processing_status(
+                                f"Cancelled: {os.path.basename(file_path)}",
+                                "orange",
+                            ),
+                        )
+                        self.after(
+                            0,
+                            lambda: app_logic._append_system_text(
+                                f"Video manager PDF generation cancelled: {os.path.basename(file_path)}"
+                            ),
+                        )
+                        return
                     elapsed = (datetime.now() - started).total_seconds()
                     print(f"[Debug] Video->PDF in-app processing finished in {elapsed:.1f}s")
                     self.after(

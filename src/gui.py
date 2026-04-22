@@ -111,6 +111,9 @@ class CompactActionApp(ctk.CTk):
 
         # Cyan tag for timestamps
         self.transcript_box.tag_config("timestamp", foreground="#00f2ff")
+        self.transcript_box.tag_config("speaker_1", foreground="#47d17d")
+        self.transcript_box.tag_config("speaker_2", foreground="#ffd24a")
+        self.transcript_box.tag_config("speaker_multi", foreground="#ffb86b")
         # System messages are shown in red
         self.transcript_box.tag_config("system", foreground="#ff5f5f")
         # mouse wheel scrolling for transcript box
