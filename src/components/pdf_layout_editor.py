@@ -13,8 +13,9 @@ class PDFLayoutEditorDialog(ctk.CTkToplevel):
     def __init__(self, parent, action_items=None):
         super().__init__(parent)
         self.title("Customize PDF Layout")
-        self.geometry("760x520")
-        self.minsize(760, 520)
+        min_w, min_h = 380, 600
+        self.geometry(f"{min_w}x{min_h}")
+        self.minsize(min_w, min_h)
         self.configure(fg_color="#1d2027")
         self.transient(parent)
         self.grab_set()
@@ -24,71 +25,109 @@ class PDFLayoutEditorDialog(ctk.CTkToplevel):
         self._drag_index = None
         self._section_rows = []
         self._drag_anchor_row = None
+        self.section_container = None
 
         self._build_ui()
 
     def _build_ui(self):
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+
         title = ctk.CTkLabel(
             self,
             text="Customize PDF Output",
             font=("Inter", 20, "bold"),
             text_color="#f2f4f8",
         )
-        title.pack(anchor="w", padx=20, pady=(16, 4))
+        title.grid(row=0, column=0, sticky="w", padx=20, pady=(16, 4))
 
         subtitle = ctk.CTkLabel(
             self,
             text="Drag the section rows to reorder the PDF layout. Closing this window cancels PDF generation.",
             font=("Inter", 12),
             text_color="#b9c1cc",
-            wraplength=700,
+            wraplength=340,
             justify="left",
         )
-        subtitle.pack(anchor="w", padx=20, pady=(0, 12))
+        subtitle.grid(row=1, column=0, sticky="w", padx=20, pady=(0, 12))
 
         self.section_scroll = ctk.CTkScrollableFrame(
             self,
             fg_color="#181b20",
             corner_radius=10,
-            height=390,
         )
-        self.section_scroll.pack(fill="both", expand=True, padx=20, pady=(0, 12))
+        self.section_scroll.grid(row=2, column=0, sticky="nsew", padx=14, pady=(0, 10))
+
+        # Compatibility-safe styling: apply optional scrollbar colors only if supported
+        # by the installed CustomTkinter version.
+        self._apply_scrollbar_style_safe()
+
+        # Render rows into a dedicated container so internal scroll widgets remain intact.
+        self.section_container = ctk.CTkFrame(self.section_scroll, fg_color="transparent")
+        self.section_container.pack(fill="x", expand=True)
+
+        # Keep the scrollbar hidden but preserve mouse-wheel scrolling.
+        self.section_scroll.bind("<MouseWheel>", self._on_mousewheel_scroll)
 
         self._render_section_rows()
 
         controls = ctk.CTkFrame(self, fg_color="transparent")
-        controls.pack(fill="x", padx=20, pady=(0, 16))
+        controls.grid(row=3, column=0, sticky="ew", padx=14, pady=(0, 12))
+        controls.grid_columnconfigure(0, weight=1)
+        controls.grid_columnconfigure(1, weight=1)
 
         cancel_btn = ctk.CTkButton(
             controls,
             text="Cancel",
-            width=130,
+            height=34,
             fg_color="#3f4650",
             hover_color="#525a66",
             command=self._on_cancel,
         )
-        cancel_btn.pack(side="right", padx=(8, 0))
+        cancel_btn.grid(row=0, column=1, padx=(6, 0), sticky="ew")
 
         generate_btn = ctk.CTkButton(
             controls,
             text="Generate PDF",
-            width=150,
+            height=34,
             fg_color="#1f6aa5",
             hover_color="#1a5280",
             command=self._on_generate,
         )
-        generate_btn.pack(side="right")
+        generate_btn.grid(row=0, column=0, padx=(0, 6), sticky="ew")
 
         self.protocol("WM_DELETE_WINDOW", self._on_cancel)
 
+    def _on_mousewheel_scroll(self, event):
+        canvas = getattr(self.section_scroll, "_parent_canvas", None)
+        if canvas is None:
+            return
+        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    def _apply_scrollbar_style_safe(self):
+        """Apply scrollbar visual styling only when the current CTk build supports it."""
+        try:
+            self.section_scroll.configure(
+                scrollbar_fg_color="#181b20",
+                scrollbar_button_color="#60656d",
+                scrollbar_button_hover_color="#757c86",
+            )
+        except Exception:
+            # Older CustomTkinter versions may not support these style keys.
+            pass
+
     def _render_section_rows(self):
-        for widget in self.section_scroll.winfo_children():
+        container = self.section_container
+        if container is None:
+            return
+
+        for widget in container.winfo_children():
             widget.destroy()
 
         self._section_rows = []
 
         for index, section in enumerate(self.section_items):
-            row = ctk.CTkFrame(self.section_scroll, fg_color="#232830", corner_radius=10)
+            row = ctk.CTkFrame(container, fg_color="#232830", corner_radius=10)
             row.pack(fill="x", padx=8, pady=5)
             row.grid_columnconfigure(1, weight=1)
 
@@ -160,8 +199,10 @@ class PDFLayoutEditorDialog(ctk.CTkToplevel):
         return list(self.section_items)
 
     def _on_generate(self):
+        current_order = self._current_section_order()
         self.result = {
-            "section_order": self._current_section_order(),
+            "section_order": current_order,
+            "selection_order": current_order,
             "include_sections": list(self.section_items),
         }
 

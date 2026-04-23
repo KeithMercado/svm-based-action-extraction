@@ -3,8 +3,11 @@ Model Trainer Module
 Handles CSV dataset loading, incremental training, and self-training feedback.
 """
 
+import argparse
 import os
+import sys
 import pandas as pd
+from sklearn.utils import shuffle
 
 
 class ModelTrainer:
@@ -19,13 +22,22 @@ class ModelTrainer:
         """
         self.classifier = classifier
 
-    def train_from_csv(self, file_paths):
+    def _is_synthetic_file(self, path):
+        base = os.path.basename(path).lower()
+        return base.startswith("hard_negative_information_items")
+
+    def train_from_csv(self, file_paths, max_synthetic_ratio=0.25, random_seed=42):
         """
         Train the SVM model from CSV datasets.
 
         Args:
             file_paths (list): List of CSV file paths to train on
+            max_synthetic_ratio (float): Maximum synthetic-to-real ratio in the final training mix
+            random_seed (int): Random seed for reproducible sampling and shuffle
         """
+        real_parts = []
+        synthetic_parts = []
+
         for path in file_paths:
             if os.path.exists(path):
                 print(f"[System] Training on {path}...")
@@ -44,17 +56,50 @@ class ModelTrainer:
                 # Clean data: Remove empty rows
                 text_col = "text" if "text" in df.columns else "sentence"
                 df = df.dropna(subset=[text_col, "label"])
-                texts = df[text_col].astype(str).tolist()  # Ensure everything is a string
-                labels = [
-                    1 if "action" in str(l).lower() else 0
-                    for l in df["label"].tolist()
-                ]
 
-                # Train
-                self.classifier.train_on_batch(texts, labels)
-                print(f"  - Successfully processed {len(texts)} rows.")
+                normalized = pd.DataFrame(
+                    {
+                        "text": df[text_col].astype(str),
+                        "label": [1 if "action" in str(l).lower() else 0 for l in df["label"].tolist()],
+                    }
+                )
+
+                if self._is_synthetic_file(path):
+                    synthetic_parts.append(normalized)
+                else:
+                    real_parts.append(normalized)
+
+                print(f"  - Successfully processed {len(normalized)} rows.")
             else:
                 print(f"[Error] File not found: {path}")
+
+        if not real_parts and not synthetic_parts:
+            print("[Error] No valid training rows were loaded. Aborting training.")
+            return
+
+        real_df = pd.concat(real_parts, ignore_index=True) if real_parts else pd.DataFrame(columns=["text", "label"])
+        synthetic_df = pd.concat(synthetic_parts, ignore_index=True) if synthetic_parts else pd.DataFrame(columns=["text", "label"])
+
+        if len(real_df) > 0 and len(synthetic_df) > 0:
+            max_synthetic_rows = int(len(real_df) * max_synthetic_ratio)
+            if len(synthetic_df) > max_synthetic_rows:
+                synthetic_df = synthetic_df.sample(n=max_synthetic_rows, random_state=random_seed)
+                print(
+                    f"[System] Synthetic cap applied: keeping {len(synthetic_df)} synthetic rows "
+                    f"for {len(real_df)} real rows (ratio={max_synthetic_ratio:.2f})."
+                )
+
+        train_df = pd.concat([real_df, synthetic_df], ignore_index=True)
+        train_df = shuffle(train_df, random_state=random_seed).reset_index(drop=True)
+
+        texts = train_df["text"].tolist()
+        labels = train_df["label"].tolist()
+        self.classifier.train_on_batch(texts, labels)
+        print(f"[System] Final training batch size: {len(train_df)} rows")
+        print(
+            f"[System] Class distribution: {train_df['label'].value_counts().to_dict()} | "
+            f"real={len(real_df)}, synthetic={len(synthetic_df)}"
+        )
 
         # Save the updated model
         self.classifier.save_model()
@@ -141,3 +186,62 @@ class ModelTrainer:
             print("[System] Found 'user_corrections.csv'. Adding to training pool...")
 
         return datasets
+
+
+def main():
+    """CLI entry point for training without using Main.py."""
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+    from core.classifier import ActionItemClassifier
+
+    parser = argparse.ArgumentParser(
+        description="Train the SVM classifier from CSV datasets (standalone mode)."
+    )
+    parser.add_argument(
+        "--model-path",
+        type=str,
+        default="svm_model_exp_hardneg.pkl",
+        help="Output PKL path for the trained model.",
+    )
+    parser.add_argument(
+        "--datasets",
+        nargs="*",
+        default=None,
+        help="Optional list of dataset CSV paths. If omitted, default dataset pool is used.",
+    )
+    parser.add_argument(
+        "--max-synthetic-ratio",
+        type=float,
+        default=0.25,
+        help="Maximum synthetic-to-real ratio in training mix (default: 0.25).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for sampling/shuffling (default: 42).",
+    )
+
+    args = parser.parse_args()
+
+    classifier = ActionItemClassifier(model_path=args.model_path)
+    trainer = ModelTrainer(classifier)
+    file_paths = args.datasets if args.datasets else trainer.get_training_datasets()
+
+    print("=" * 70)
+    print("STANDALONE TRAINING (trainer.py)")
+    print("=" * 70)
+    print(f"[System] Output model path: {args.model_path}")
+    print(f"[System] Datasets to process: {len(file_paths)}")
+
+    trainer.train_from_csv(
+        file_paths,
+        max_synthetic_ratio=args.max_synthetic_ratio,
+        random_seed=args.seed,
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -8,6 +8,7 @@ from typing import Dict, List
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import HashingVectorizer
 from sklearn.metrics import (
     accuracy_score,
@@ -60,7 +61,12 @@ def ensure_output_dir():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-def resolve_model_path() -> str:
+def resolve_model_path(preferred_model_path: str = "") -> str:
+    if preferred_model_path:
+        if os.path.exists(preferred_model_path):
+            return preferred_model_path
+        raise FileNotFoundError(f"Preferred model path not found: {preferred_model_path}")
+
     for candidate in MODEL_CANDIDATES:
         if os.path.exists(candidate):
             return candidate
@@ -145,6 +151,36 @@ def load_all_datasets(selected: List[str]) -> pd.DataFrame:
     return combined
 
 
+def split_by_source(df: pd.DataFrame, test_ratio: float, val_ratio: float, random_seed: int):
+    """Split by source_file to reduce source leakage into validation/test."""
+    unique_sources = sorted(df["source_file"].astype(str).unique().tolist())
+    if len(unique_sources) < 3:
+        raise ValueError(
+            "Need at least 3 distinct source datasets for train/val/test split by source_file."
+        )
+
+    train_sources, test_sources = train_test_split(
+        unique_sources,
+        test_size=test_ratio,
+        random_state=random_seed,
+    )
+
+    val_share_of_train = val_ratio / max(1e-8, (1.0 - test_ratio))
+    val_share_of_train = min(max(val_share_of_train, 0.05), 0.5)
+
+    train_sources, val_sources = train_test_split(
+        train_sources,
+        test_size=val_share_of_train,
+        random_state=random_seed,
+    )
+
+    train_df = df[df["source_file"].isin(train_sources)].copy()
+    val_df = df[df["source_file"].isin(val_sources)].copy()
+    test_df = df[df["source_file"].isin(test_sources)].copy()
+
+    return train_df, val_df, test_df, train_sources, val_sources, test_sources
+
+
 def get_features(model, texts: pd.Series):
     if hasattr(model, "named_steps"):
         return texts
@@ -164,16 +200,29 @@ def get_scores(model, features):
     raise RuntimeError("Loaded model does not expose decision_function for PR analysis.")
 
 
-def choose_high_recall_threshold(y_true: np.ndarray, scores: np.ndarray, target_recall: float) -> float:
+def choose_threshold(
+    y_true: np.ndarray,
+    scores: np.ndarray,
+    threshold_mode: str,
+    target_recall: float,
+    target_precision: float,
+) -> float:
     precisions, recalls, thresholds = precision_recall_curve(y_true, scores)
     if thresholds.size == 0:
         return 0.0
 
-    candidate_idxs = np.where(recalls[:-1] >= target_recall)[0]
-    if candidate_idxs.size > 0:
-        best_idx = candidate_idxs[np.argmax(precisions[:-1][candidate_idxs])]
+    if threshold_mode == "precision":
+        candidate_idxs = np.where(precisions[:-1] >= target_precision)[0]
+        if candidate_idxs.size > 0:
+            best_idx = candidate_idxs[np.argmax(recalls[:-1][candidate_idxs])]
+        else:
+            best_idx = int(np.argmax(precisions[:-1]))
     else:
-        best_idx = int(np.argmax(recalls[:-1]))
+        candidate_idxs = np.where(recalls[:-1] >= target_recall)[0]
+        if candidate_idxs.size > 0:
+            best_idx = candidate_idxs[np.argmax(precisions[:-1][candidate_idxs])]
+        else:
+            best_idx = int(np.argmax(recalls[:-1]))
 
     return float(thresholds[best_idx])
 
@@ -224,6 +273,8 @@ def plot_precision_recall_curve(
     threshold: float,
     output_path: str,
     target_recall: float,
+    threshold_mode: str,
+    target_precision: float,
 ):
     precisions, recalls, _ = precision_recall_curve(y_true, scores)
     y_pred = (scores >= threshold).astype(int)
@@ -233,7 +284,8 @@ def plot_precision_recall_curve(
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(recalls, precisions, color="#FF8C00", marker="o", markersize=3, linewidth=2, label="SVM (SGD) Curve")
     ax.fill_between(recalls, precisions, alpha=0.15, color="#FFB84D")
-    ax.scatter([chosen_recall], [chosen_precision], s=120, color="red", zorder=5, label="Chosen Operating Point (Recall priority)")
+    mode_label = "Recall priority" if threshold_mode == "recall" else "Precision priority"
+    ax.scatter([chosen_recall], [chosen_precision], s=120, color="red", zorder=5, label=f"Chosen Operating Point ({mode_label})")
 
     ax.annotate(
         f"threshold={threshold:.4f}\nP={chosen_precision:.2f}, R={chosen_recall:.2f}",
@@ -253,7 +305,7 @@ def plot_precision_recall_curve(
     ax.text(
         0.02,
         0.03,
-        f"Target recall: {target_recall:.2f}",
+        f"Mode: {mode_label} | Target recall: {target_recall:.2f} | Target precision: {target_precision:.2f}",
         transform=ax.transAxes,
         fontsize=9,
         bbox=dict(facecolor="white", alpha=0.8, edgecolor="#CCCCCC"),
@@ -300,9 +352,18 @@ def plot_normalized_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, out
     plt.close(fig)
 
 
-def run_evaluation(selected_datasets: List[str], target_recall: float):
+def run_evaluation(
+    selected_datasets: List[str],
+    target_recall: float,
+    threshold_mode: str,
+    target_precision: float,
+    model_path_override: str,
+    test_ratio: float,
+    val_ratio: float,
+    random_seed: int,
+):
     ensure_output_dir()
-    model_path = resolve_model_path()
+    model_path = resolve_model_path(model_path_override)
 
     print(f"[System] Using model: {model_path}")
     with open(model_path, "rb") as handle:
@@ -316,12 +377,33 @@ def run_evaluation(selected_datasets: List[str], target_recall: float):
     print(f"[Data] Combined samples: {len(df)}")
     print(f"[Data] Class distribution: {df['label'].value_counts().to_dict()}")
 
-    features = get_features(model, df["sentence"])
-    y_true = df["label"].to_numpy(dtype=int)
-    scores = get_scores(model, features)
+    train_df, val_df, test_df, train_sources, val_sources, test_sources = split_by_source(
+        df,
+        test_ratio=test_ratio,
+        val_ratio=val_ratio,
+        random_seed=random_seed,
+    )
+
+    print(f"[Split] train sources: {len(train_sources)} | val sources: {len(val_sources)} | test sources: {len(test_sources)}")
+    print(f"[Split] train rows: {len(train_df)} | val rows: {len(val_df)} | test rows: {len(test_df)}")
+
+    val_features = get_features(model, val_df["sentence"])
+    val_y_true = val_df["label"].to_numpy(dtype=int)
+    val_scores = get_scores(model, val_features)
+
+    test_features = get_features(model, test_df["sentence"])
+    y_true = test_df["label"].to_numpy(dtype=int)
+    scores = get_scores(model, test_features)
+
     default_pred = (scores >= 0.0).astype(int)
 
-    chosen_threshold = choose_high_recall_threshold(y_true, scores, target_recall=target_recall)
+    chosen_threshold = choose_threshold(
+        val_y_true,
+        val_scores,
+        threshold_mode=threshold_mode,
+        target_recall=target_recall,
+        target_precision=target_precision,
+    )
     y_pred = (scores >= chosen_threshold).astype(int)
 
     report = classification_report(
@@ -338,15 +420,15 @@ def run_evaluation(selected_datasets: List[str], target_recall: float):
     recall_recall = recall_score(y_true, y_pred, zero_division=0)
     f1_recall = f1_score(y_true, y_pred, zero_division=0)
 
-    print(f"[Threshold] Chosen recall-priority threshold: {chosen_threshold:.5f}")
+    print(f"[Threshold] Chosen {threshold_mode}-priority threshold (from validation): {chosen_threshold:.5f}")
     print(f"[Default] Accuracy: {accuracy_default * 100:.2f}%")
-    print(f"[Recall-priority] Accuracy: {accuracy_recall * 100:.2f}%")
-    print(f"[Recall-priority] Precision: {precision_recall:.4f}")
-    print(f"[Recall-priority] Recall: {recall_recall:.4f}")
-    print(f"[Recall-priority] F1: {f1_recall:.4f}")
+    print(f"[Tuned-on-val / Test] Accuracy: {accuracy_recall * 100:.2f}%")
+    print(f"[Tuned-on-val / Test] Precision: {precision_recall:.4f}")
+    print(f"[Tuned-on-val / Test] Recall: {recall_recall:.4f}")
+    print(f"[Tuned-on-val / Test] F1: {f1_recall:.4f}")
 
     print("\n" + "=" * 72)
-    print("PER-CLASS METRICS")
+    print("PER-CLASS METRICS (TEST SET)")
     print("=" * 72)
     print(classification_report(y_true, y_pred, target_names=CLASS_NAMES, zero_division=0))
 
@@ -356,7 +438,15 @@ def run_evaluation(selected_datasets: List[str], target_recall: float):
     summary_path = os.path.join(OUTPUT_DIR, "evaluation_summary.csv")
 
     plot_class_performance(report, perf_plot_path)
-    plot_precision_recall_curve(y_true, scores, chosen_threshold, pr_plot_path, target_recall)
+    plot_precision_recall_curve(
+        y_true,
+        scores,
+        chosen_threshold,
+        pr_plot_path,
+        target_recall,
+        threshold_mode,
+        target_precision,
+    )
     plot_normalized_confusion_matrix(y_true, y_pred, cm_plot_path)
 
     summary_rows = [
@@ -366,8 +456,15 @@ def run_evaluation(selected_datasets: List[str], target_recall: float):
         {"metric": "recall_recall_priority", "value": recall_recall},
         {"metric": "f1_recall_priority", "value": f1_recall},
         {"metric": "chosen_threshold", "value": chosen_threshold},
+        {"metric": "threshold_mode", "value": threshold_mode},
         {"metric": "target_recall", "value": target_recall},
-        {"metric": "samples", "value": len(df)},
+        {"metric": "target_precision", "value": target_precision},
+        {"metric": "train_samples", "value": len(train_df)},
+        {"metric": "validation_samples", "value": len(val_df)},
+        {"metric": "test_samples", "value": len(test_df)},
+        {"metric": "test_ratio", "value": test_ratio},
+        {"metric": "val_ratio", "value": val_ratio},
+        {"metric": "random_seed", "value": random_seed},
     ]
     pd.DataFrame(summary_rows).to_csv(summary_path, index=False)
 
@@ -399,11 +496,56 @@ def main():
         default=0.95,
         help="Recall target used to choose the operating threshold.",
     )
+    parser.add_argument(
+        "--threshold-mode",
+        choices=["recall", "precision"],
+        default="recall",
+        help="Threshold selection strategy: recall priority or precision priority.",
+    )
+    parser.add_argument(
+        "--target-precision",
+        type=float,
+        default=0.70,
+        help="Precision target when threshold-mode=precision.",
+    )
+    parser.add_argument(
+        "--model-path",
+        type=str,
+        default="",
+        help="Optional model path override (useful for separate experiment PKLs).",
+    )
+    parser.add_argument(
+        "--test-ratio",
+        type=float,
+        default=0.20,
+        help="Ratio of source datasets reserved for test split.",
+    )
+    parser.add_argument(
+        "--val-ratio",
+        type=float,
+        default=0.20,
+        help="Ratio of source datasets reserved for validation split.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for source split.",
+    )
 
     args = parser.parse_args()
 
     selected = list(DATASETS.keys()) if args.dataset == "all" else [args.dataset]
-    run_evaluation(selected, target_recall=args.target_recall)
+    run_evaluation(
+        selected,
+        target_recall=args.target_recall,
+        threshold_mode=args.threshold_mode,
+        target_precision=args.target_precision,
+        model_path_override=args.model_path,
+        test_ratio=args.test_ratio,
+        val_ratio=args.val_ratio,
+        random_seed=args.seed,
+    )
 
 
 if __name__ == "__main__":
