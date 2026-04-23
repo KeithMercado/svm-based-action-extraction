@@ -1,6 +1,0 @@
-Threshold Tradeoff Interpretation
-================================
-Using high recall mode reduced missed actions (FN) by -10 but increased extra false alarms (FP) by -322.
-Balanced mode: Precision=0.1692, Recall=1.0000, FN=0, FP=491.
-High recall mode: Precision=0.3475, Recall=0.9000, FN=10, FP=169.
-Thesis framing: If missing an action item is more costly than reviewing extra alarms, high recall mode is preferred for deployment.

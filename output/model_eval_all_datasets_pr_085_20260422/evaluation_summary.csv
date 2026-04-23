@@ -1,9 +1,0 @@
-metric,value
-accuracy_default_threshold,0.9354126229837361
-accuracy_recall_priority,0.9244974678178614
-precision_recall_priority,0.9964346104943046
-recall_recall_priority,0.8514258193140835
-f1_recall_priority,0.9182405131333385
-chosen_threshold,0.0820974164698139
-target_recall,0.85
-samples,179292.0

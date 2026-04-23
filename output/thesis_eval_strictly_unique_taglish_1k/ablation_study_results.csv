@@ -1,8 +1,0 @@
-config,ngram_range,lowercase,class_weight,use_char_ngrams,precision,recall,f1_action,f1_macro
-Ablation ngram unigram,"(1, 1)",True,balanced,False,0.27548209366391185,1.0,0.4319654427645788,0.6304264429177481
-Ablation ngram uni+bi,"(1, 2)",True,balanced,False,0.23255813953488372,1.0,0.37735849056603776,0.5764343473238351
-Ablation add char 3-5,"(1, 2)",True,balanced,True,0.31746031746031744,1.0,0.4819277108433735,0.6731405115731063
-Ablation lowercase on,"(1, 2)",True,balanced,False,0.23255813953488372,1.0,0.37735849056603776,0.5764343473238351
-Ablation preserve case,"(1, 2)",False,balanced,False,0.23255813953488372,1.0,0.37735849056603776,0.5764343473238351
-Ablation class weight none,"(1, 2)",True,None,False,0.20876826722338204,1.0,0.3454231433506045,0.5393547806830432
-Ablation class weight balanced,"(1, 2)",True,balanced,False,0.23255813953488372,1.0,0.37735849056603776,0.5764343473238351
