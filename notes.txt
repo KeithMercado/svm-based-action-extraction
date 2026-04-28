@@ -104,3 +104,14 @@ FINAL ASSESSMENT OF SYSTEM
  - Clean the File Management
  - Precision and Accuracy for Evaluation
  - Paper and Presentation (Monday)
+
+ 28/04/2026
+ TODO:
+  - Duration in PDF output
+  - Analytics Overview Included on PDF Viewer
+  - Divide Action Items when there are Multiple on One Sentence
+  - Improve Interface of PDF Viewer
+  - Add Model Weight
+  - Compare to Other Model
+  https://www.kaggle.com/datasets/wcukierski/enron-email-dataset/data
+  

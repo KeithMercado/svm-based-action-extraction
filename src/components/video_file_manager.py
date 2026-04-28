@@ -287,14 +287,14 @@ class VideoFileManager(ctk.CTkToplevel):
                     self.after(
                         0,
                         lambda: self._finish_processing_status(
-                            f"Finished in {elapsed:.1f}s: {os.path.basename(file_path)}",
+                            f"Preview opened in {elapsed:.1f}s: {os.path.basename(file_path)}",
                             "green",
                         ),
                     )
                     self.after(
                         0,
                         lambda: app_logic._append_system_text(
-                            f"Video manager PDF generated: {result_data['pdf_path']}"
+                            f"Video manager preview opened for: {os.path.basename(file_path)}"
                         ),
                     )
                     self.after(
@@ -323,14 +323,14 @@ class VideoFileManager(ctk.CTkToplevel):
                 # used the self.after method to update the status label from the thread, 
                 # since we can't update GUI elements directly from a non-main thread
                 self.after(0, lambda: self._finish_processing_status(
-                    f"Finished in {elapsed:.1f}s: {os.path.basename(file_path)}",
+                    f"Preview opened in {elapsed:.1f}s: {os.path.basename(file_path)}",
                     "green"
                 ))
                 if app_logic is not None:
                     self.after(
                         0,
                         lambda: app_logic._append_system_text(
-                            f"Video manager processing finished in {elapsed:.1f}s: {os.path.basename(file_path)}"
+                            f"Video manager preview opened in {elapsed:.1f}s: {os.path.basename(file_path)}"
                         ),
                     )
 
