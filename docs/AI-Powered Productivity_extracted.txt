@@ -1,0 +1,317 @@
+TOTAL_PAGES=24
+
+--- PAGE 1 ---
+I N T E R P R E T A B L E  A C T I O N - I T E M
+D E T E C T I O N  I N  L O N G  M E E T I N G
+T R A N S C R I P T S  U S I N G  L I N E A R  S V M
+A N D  L I N G U I S T I C  F E A T U R E  M O D E L I N G
+I N T E R P R E T A B L E  A C T I O N - I T E MI N T E R P R E T A B L E  A C T I O N - I T E M
+D E T E C T I O N  I N  L O N G  M E E T I N GD E T E C T I O N  I N  L O N G  M E E T I N G
+T R A N S C R I P T S  U S I N G  L I N E A R  S V MT R A N S C R I P T S  U S I N G  L I N E A R  S V M
+A N D  L I N G U I S T I C  F E A T U R E  M O D E L I N GA N D  L I N G U I S T I C  F E A T U R E  M O D E L I N G
+Using Linear SVM and
+Linguistic Feature Modeling
+Venus Ruselle B. Daanoy
+John Keith S. Mercado
+Presented by:
+NEW ERA UNIVERSITYCOLLEGE OF INFORMATICS AND
+COMPUTING STUDIES
+
+--- PAGE 2 ---
+RECOMMENDATION
+T h e s e  a re  th e  re c o m m e n d a ti o n s  f ro m  p a n e l is ts  f ro m  T h e s is  1 .
+Overall Summary
+Transcription for Live Recording
+Generated Minutes of the Meeting
+
+--- PAGE 3 ---
+KEY SOLUTIONS
+✓  A b s tr a c t iv e  s u m m a r iz a t i o n  u s i n g
+L l a m a
+✓  S e m a n t i c  s e g m e n t a t i o n  w it h
+c o s i n e  s i m i l a r ity w
+✓  C o n t e x t - a w a r e  t o p i c  l a b e l i n g
+✓  N a rr a t iv e  c o h e r e n c e  p r e s e r v a t i o n
+✓  R e c u rs iv e  m e rg i n g  a l g o rith m  f o r l o n g
+tra n s c rip ts
+✓  E x e c u tiv e  O v e rv i e w  +  T o p i c a l
+B re a k d o w n
+✓  C o n s o l i d a te d  A c ti o n - Ite m  L is t
+✓  P ro f e s s i o n a l ,  m e e ti n g - re a d y  f o rm a t
+✓  O v e ra l l  C o n c a te n a ti o n
+Overall Summary
+✓  D u a l - E n g i n e  R e d u n d a n c y  ( 2
+W h is p e r,  1  f o r  L o c a l )
+ ✓  T e m p o r a l  C h u n k i n g  f o r  s t a b i l ity
+ ✓  Z e r o - l a t e n c y  f a l l b a c k  m e c h a n is m
+✓  R e a l - t i m e  tr a n s c r ip t  p r o c e s s i n g
+Transcription for Live Recording
+Generated Minutes of the Meeting
+
+--- PAGE 4 ---
+INTRODUCTION
+This study addresses the challenge of inform ation overload in
+hybrid work environm ents by developing an interpretable
+system  for autom ated action-item  detection and m eeting
+sum m arization.
+This research is vital because it provides a
+transparent, high-precision fram ework for
+capturing professional com m itm ents within
+"Taglish" conversations, ensuring
+accountability in hybrid work environm ents.
+W hy This Matters
+
+--- PAGE 5 ---
+P R O B L E M  S T A T E M E N T
+A N D  C O N T E X T
+01
+I n f o rm a ti o n  O v e rl o a d  i n  H y b ri d
+E n v iro n m e n ts
+T a g l is h  c o d e - s w itc h i n g  c o m p l e x ity
+M a n u a l  M i n u te s  o f  m e e ti n g  is  l a b o r-
+i n te n s iv e
+M a n u a l  m i n u te s  o f  th e  m e e ti n g  is
+l a b o r- e x te n s iv e Challenges 02
+1 8 0 , 0 0 0  s a m p l e  m u lti l i n g u a l
+d a ta s e t
+M e e ti n g  i n te l l i g e n c e  a u to m a ti o n
+A u d ita b l e ,  i n te rp re ta b l e  d e c is i o n s
+R e a l - ti m e  o p e ra ti o n a l  c a p a b i l ity Opportunity
+
+--- PAGE 6 ---
+SYSTEMARCHITECTUREOVERVIEW
+S e m a n t i c  S e g m e n t a t i o n
+A c t i o n  I t e m  C l a s s i f i c a t i o n
+D a t a  A c q u i s i t i o n  a n d  T r a n s c r i p t i o n
+SYSTEMSYSTEMARCHITECTUREARCHITECTUREOVERVIEWOVERVIEW
+A p p l i c a t i o n  P i p e l i n e
+D i a g r a m
+A b s tr a c t i v e  S u m m a r i z a t i o n
+R e c u r s i v e  M e r g i n g  &  M o M
+01
+02
+03
+04
+05
+
+--- PAGE 7 ---
+D a t a  A c q u i s i t i o n  a n d  T r a n s c r i p t i o n
+01
+T h is  i n iti a l  p h a s e  c o n v e rts  ra w  c o n v e rs a ti o n a l
+a u d i o  i n to  te x t u s i n g  a  d u a l - e n g i n e
+re d u n d a n c y  s tra te g y . B y  i n te g ra ti n g  b o th
+h i g h - p e r f o rm a n c e  A P I - b a s e d  e n g i n e s  a n d
+l o c a l  f a l l b a c k  m o d e ls ,  th e  s y s te m  e n s u re s
+h i g h - f i d e l ity  tra n s c rip ti o n  a n d  c o n ti n u o u s
+u p ti m e  e v e n  d u ri n g  n e tw o rk  i n te rru p ti o n s .
+
+--- PAGE 8 ---
+S e m a n t i c  S e g m e n t a t i o n
+02
+T o  o rg a n iz e  th e  u n s tru c tu re d  tra n s c rip t,  th e
+s y s te m  e m p l o y s  c o s i n e - s i m i l a rity  a n a ly s is  to
+m e a s u re  th e  s e m a n ti c  d is ta n c e  b e tw e e n
+a d j a c e n t s e n te n c e s . W h e n  th e  s i m i l a rity
+s c o re  d ro p s  b e l o w  a  s p e c i f i c  th re s h o l d ,  a
+to p i c  b o u n d a ry  is  tri g g e re d ,  e f f e c tiv e ly
+d iv i d i n g  th e  m e e ti n g  i n to  c o h e re n t,  th e m a ti c
+s e g m e n ts  f o r m o re  a c c u ra te  p ro c e s s i n g .
+
+--- PAGE 9 ---
+A c t i o n  I t e m  C l a s s i f i c a t i o n
+03
+I n  th is  c o re  p h a s e ,  a  L i n e a r S u p p o rt V e c to r
+M a c h i n e  ( S V M )  p a ire d  w ith  a
+H a s h i n g V e c to riz e r i d e n ti f i e s  a c ti o n a b l e
+c o m m itm e n ts  w ith i n  e a c h  s e g m e n t. T h is
+m o d e l  a n a ly z e s  l i n g u is ti c  f e a tu re s — s u c h  a s
+m o d a l  v e rb s  a n d  i m p e ra tiv e s — to
+m a th e m a ti c a l ly  d is ti n g u is h  b e tw e e n  g e n e ra l
+d is c u s s i o n  a n d  v e ri f i a b l e  ta s k s .
+
+--- PAGE 10 ---
+A b s tr a c t i v e  S u m m a r i z a t i o n
+04
+T h e  s e g m e n te d  te x t a n d  i d e n ti f i e d  a c ti o n
+ite m s  a re  p ro c e s s e d  b y  a  s u m m a riz a ti o n
+m o d u l e  u ti l iz i n g  L l a m a  a n d  B A R T . T h is  s ta g e
+g e n e ra te s  a  c o n c is e  n a rra tiv e  th a t c a p tu re s
+th e  e s s e n c e  o f  th e  d is c u s s i o n  w h i l e  k e e p i n g
+th e  a c ti o n - ite m  l is t e x p l i c itly  s e p a ra te  f o r
+a u d ita b i l ity .
+
+--- PAGE 11 ---
+R e c u r s i v e  M e r g i n g  &  M o M
+05
+T h e  f i n a l  p h a s e  c o n s o l i d a te s  i n d iv i d u a l
+s e g m e n t s u m m a ri e s  i n to  a  u n i f i e d  m e e ti n g -
+l e v e l  re p o rt. I f  th e  m e rg e d  c o n te n t e x c e e d s
+to k e n  l i m its ,  th e  s y s te m  ite ra tiv e ly  re a p p l i e s
+s u m m a riz a ti o n  to  e n s u re  th e  f i n a l  M i n u te s  o f
+th e  M e e ti n g  ( M o M )  is  c o m p a c t,  s tru c tu re d ,
+a n d  re a d y  f o r p ro f e s s i o n a l  e x p o rt.
+
+--- PAGE 12 ---
+TECHNICAL APPROACH 
+F e a tu r e  H a s h i n g  ( 2 ^ 1 0  =  1 , 0 2 4
+d i m e n s i o n s )
+S o f t - m a r g i n  S V M  o p t i m iz a t i o n
+S G D  C l a s s i f i e r  w it h  H i n g e  L o s s
+M a x i m u m  m a r g i n  h y p e rp l a n e
+M a th e m a ti c a l  f o rm u l a ti o n
+( d e c is i o n  b o u n d a ry )
+F e a tu re  w e i g h t v is u a l iz a ti o n
+S u p p o rt v e c to r re p re s e n ta ti o n
+D e c is i o n  b o u n d a ry  d i a g ra m
+LINEAR SVM CLASSIFICATION
+
+--- PAGE 13 ---
+L I N G U I S T I C
+F E A T U R E S  A N D
+I N T E R P R E T A B I L I T Y
+T h e  m o d e l  is  e n g i n e e re d  to  re c o g n iz e  a  d u a l - l a y e re d
+l i n g u is ti c  s tru c tu re  b y  c a p tu ri n g  b o th  s ta n d a rd  E n g l is h
+i m p e ra tiv e  v e rb s  a n d  c u ltu ra l ly  s p e c i f i c  F i l ip i n o  d is c o u rs e
+m a rk e rs . 
+Structure
+
+--- PAGE 14 ---
+P E R F O R M A N C E
+M E T R I C S  A N D
+R E S U L T S
+T h is  g ra p h  i llu s tra te s  th e  s y s te m ' s  h i g h  re li a b i lity  i n
+d is ti n g u is h i n g  ta s k s  f ro m  g e n e ra l d i a lo g u e ,  a c h i e v i n g  a
+ro b u s t A re a  U n d e r th e  P re c is i o n - R e c a ll C u rv e  ( A U P R C )  o f
+0 .9 1 6 2 . T h e  re s u lt c o n f irm s  th a t th e  m o d e l m a i n ta i n s  s tro n g
+ra n k i n g  s ta b i lity  a n d  p re d i c tiv e  a c c u ra c y  a c ro s s  v a ry i n g
+m e e ti n g  c o m p le x iti e s .
+Precision- Recall Curve
+A
+
+--- PAGE 15 ---
+P E R F O R M A N C E
+M E T R I C S  A N D
+R E S U L T S
+T h e  d a s h b o a rd  d is p l a y s  th e  s y s te m ’ s  f l e x i b l e  c o n f i g u ra ti o n ,
+c o m p a ri n g  a  B a l a n c e d  M o d e  f o r g e n e ra l  s ta b i l ity  a g a i n s t a
+H i g h - R e c a l l  M o d e  f o r c riti c a l  ta s k  d e te c ti o n . B y  a d ju s ti n g
+th e  d e c is i o n  th re s h o l d  to  - 0 .0 0 1 5 ,  th e  m o d e l  s u c c e s s f u l ly
+c a p tu re s  m o re  c o m m itm e n ts  w ith o u t c o m p ro m is i n g
+p re c is i o n ,  a l l o w i n g  f o r u s e r- d riv e n  s e n s itiv ity  tu n i n g .
+Comparison Mode
+B
+
+--- PAGE 16 ---
+P E R F O R M A N C E
+M E T R I C S  A N D
+R E S U L T S
+T h is  s e c ti o n  v a l i d a te s  th e  m o d e l ’ s  v e rs a ti l ity  a c ro s s  d iv e rs e
+c o n v e rs a ti o n a l  s e tti n g s ,  h i g h l i g h ti n g  a  p e a k  F 1 - s c o re  o f  0 .9 0
+i n  d e d i c a te d  m e e ti n g  e n v iro n m e n ts . T h e  c o n s is te n t s c o re s
+a c ro s s  f o rm a l  E n g l is h  a n d  c o m p re h e n s iv e  d a ta s e ts
+d e m o n s tra te  th a t th e  l i n g u is ti c  f e a tu re s  a re  re s i l i e n t to
+c h a n g e s  i n  v o c a b u l a ry  a n d  s p e e c h  f o rm a l ity .
+Domain Performance
+C
+
+--- PAGE 17 ---
+S Y S T E M / M O D E L
+S I M U L A T I O N
+01
+ Input
+S e g m e n ta tio n :  A  v is u a l " s lic e "  in d ic a to r
+s h o w in g  w h e re  th e  to p ic  s h if te d  b a s e d
+o n  c o s in e  s im ila rity.
+F e a tu re  E x tra c tio n :  H ig h lig h t s p e c if ic
+k e y w o rd s  f ro m  th e  in p u t ( e .g .,
+“ k a ila n g a n ,”  “ f in a liz e ,”  “ J o h n ,”  “ s e n d ” ) .
+L a b e l th e m  a s  [ M o d a l V e rb s ]  o r
+[ I m p e ra tiv e s ] .
+C la s s if ic a tio n  S c o rin g :  S h o w  th e  S V M
+m a rg in  c a lc u la tio n .
+C a lc u la tio n :  f ( x )  =  1.4 2
+T h re s h o ld :  ta u  =  0 .0
+R e s u lt:  A c tio n  Ite m  D e te c te d 02 Processing 03 Output
+
+--- PAGE 18 ---
+DATASET CHECKLIST
+ R a w  r e c o r d s :  1 8 4 , 9 7 6
+U n iq u e  s e m a n t i c  u n its :  6 4 ,1 4 4
+R e d u c t i o n :  ~ 6 5 %  n o is e  e li m i n a t i o n
+C o n f li c t  g r o u p s  r e s o lv e d :  1 2
+L a b e l  C o n s is te n c y  V e ri f i e s
+M u lti  L i n g u a l  C o v e ra g e :  T a g a l o g ,
+E n g l is h ,  T a g l is h
+D o m a i n  D iv e rs ity :  B u s i n e s s ,
+E d u c a ti o n ,  H e a lth c a re ,  L e g a l
+C ro s s  V a li d a ti o n
+A M I  M e e ti n g  C o rp u s  
+      I n te g ra ti o n
+D o m a i n  S p e c i f i c  b a la n c e d  s p lits
+H a rd  N e g a tiv e  s a m p le s
+DATA PREPARATION
+QUALITY METRICS
+DATASET COMPOSITION
+
+--- PAGE 19 ---
+T R A D E O F F
+T h e  p a ire d  c o n f u s i o n  m a tri c e s  s h o w  c l a s s - l e v e l  e rro r
+re d is tri b u ti o n  a s  th re s h o l d  p o l i c y  c h a n g e s . I n  b a l a n c e d
+m o d e ,  th e  m o d e l  y i e l d s  T P = 1 8 1 ,  T N = 1 5 8 ,  F P = 4 3 ,  F N = 1 8 . I n
+h i g h - re c a l l  m o d e ,  T P  i n c re a s e s  to  1 8 2  a n d  F N  d ro p s  to  1 7
+w h i l e  F P  re m a i n s  4 3 . P re s e n ti n g  b o th  m a tri c e s  s i d e - b y - s i d e
+g iv e s  a  tra n s p a re n t e x p l a n a ti o n  o f  h o w  th re s h o l d  p o l i c y
+a f f e c ts  o p e ra ti o n a l  o u tc o m e s . 
+Confusion Matrix Comparison
+A
+
+--- PAGE 20 ---
+T R A D E O F F
+T h e  c o n f i d e n c e  d is tri b u ti o n  p l o t s h o w s  w h e re  tru e  p o s itiv e s ,
+f a ls e  p o s itiv e s ,  a n d  f a ls e  n e g a tiv e s  c o n c e n tra te  re l a tiv e  to
+th e  d e c is i o n  b o u n d a ry . T h is  f i g u re  s u p p o rts  i n te rp re ta b i l ity
+b y  i d e n ti f y i n g  u n c e rta i n ty  re g i o n s  th a t a re  s e n s itiv e  to
+th re s h o l d  c a l i b ra ti o n  a n d  m a n u a l  re v i e w  p o l i c y .
+Distribution
+B
+
+--- PAGE 21 ---
+T R A D E O F F
+T h e  p a ire d  c o n f u s i o n  m a tri c e s  s h o w  c l a s s - l e v e l  e rro r
+re d is tri b u ti o n  a s  th re s h o l d  p o l i c y  c h a n g e s . I n  b a l a n c e d
+m o d e ,  th e  m o d e l  y i e l d s  T P = 1 8 1 ,  T N = 1 5 8 ,  F P = 4 3 ,  F N = 1 8 . I n
+h i g h - re c a l l  m o d e ,  T P  i n c re a s e s  to  1 8 2  a n d  F N  d ro p s  to  1 7
+w h i l e  F P  re m a i n s  4 3 . P re s e n ti n g  b o th  m a tri c e s  s i d e - b y - s i d e
+g iv e s  a  tra n s p a re n t e x p l a n a ti o n  o f  h o w  th re s h o l d  p o l i c y
+a f f e c ts  o p e ra ti o n a l  o u tc o m e s . 
+Confusion Matrix Comparison
+
+--- PAGE 22 ---
+T R A D E O F F
+T h e  o p e ra ti n g - p o i n ts  ta b l e  a n c h o rs  f i g u re  i n te rp re ta ti o n  w ith
+e x a c t p re c is i o n ,  re c a l l ,  F 1 ,  F P ,  a n d  F N  v a lu e s  p e r m o d e . T h e
+a b l a ti o n  ta b l e  re p o rts  th e  re l a tiv e  c o n tri b u ti o n  o f  k e y
+f e a tu re - d e s i g n  c h o i c e s ,  s u p p o rti n g  m e th o d o l o g y  c l a i m s  w ith
+c o n tro l l e d  c o m p a ris o n s . 
+Confusion Matrix Comparison
+
+--- PAGE 23 ---
+CONCLUSION
+T h is  re s e a rc h  f i n d s  th a t u s i n g  a  c a li b ra te d  S u p p o rt V e c to r M a c h i n e  ( S V M )  is  a n  e f f i c i e n t a n d  c le a r w a y  to
+i d e n ti f y  ta s k s  i n  c o m p le x  m e e ti n g  tra n s c rip ts . B y  c o m b i n i n g  th is  m o d e l w ith  a  m u lti - s te p  p ro c e s s — c o v e ri n g
+tra n s c rip ti o n ,  to p i c  s p litti n g ,  a n d  s u m m a riz a ti o n — th e  s y s te m  tra n s f o rm s  m e s s y  a u d i o  i n to  o rg a n iz e d ,
+p ro f e s s i o n a l re p o rts . U n li k e  " b la c k - b o x "  A I ,  th is  d e s i g n  a llo w s  u s e rs  to  s e e  e x a c tly  w h y  a  s e n te n c e  w a s
+f la g g e d  a s  a  ta s k ,  m a k i n g  it re li a b le  f o r p ro f e s s i o n a l u s e .
+T h e  d a ta  p ro v e s  th e  s y s te m  is  h i g h ly  e f f e c tiv e ,  a c h i e v i n g  a n  i m p re s s iv e  0 .9 1 6 2  s c o re  f o r a c c u ra c y  a n d
+ra n k i n g . It is  a ls o  f le x i b le ,  a llo w i n g  u s e rs  to  s w itc h  b e tw e e n  " B a la n c e d "  a n d  " H i g h - R e c a ll"  m o d e s  to  e n s u re
+f e w e r ta s k s  a re  m is s e d  w ith o u t c re a ti n g  e x tra  n o is e . T h is  m e a n s  o rg a n iz a ti o n s  c a n  a d ju s t th e  s y s te m  to  b e
+a s  s tri c t o r a s  s e n s itiv e  a s  th e y  n e e d  b a s e d  o n  th e ir s p e c i f i c  g o a ls .
+W h i le  th e  s y s te m  w o rk s  w e ll a c ro s s  d i f f e re n t i n d u s tri e s ,  its  s tre n g th  re li e s  o n  k e e p i n g  th e  d a ta  c le a n  a n d
+re s o lv i n g  c o n f li c ti n g  la b e ls  b e f o re  tra i n i n g . T o  s ta y  a c c u ra te  o v e r ti m e ,  th e  m o d e l w i ll re q u ire  re g u la r
+u p d a te s  to  k e e p  u p  w ith  c h a n g i n g  la n g u a g e  a n d  n e w  o f f i c e  s la n g .
+
+--- PAGE 24 ---
+THANKS FORYOUR ATTENTION
+V E N U S  R U S E L L E  B .  D A A N O Y
+J O H N  K E I T H  S .  M E R C A D O
+THANKS FORTHANKS FORYOUR ATTENTIONYOUR ATTENTION

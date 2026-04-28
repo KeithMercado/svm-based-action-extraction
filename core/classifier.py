@@ -231,7 +231,62 @@ class ActionItemClassifier:
 
             merged.append(sentence)
 
-        return [sentence for sentence in merged if len(sentence) > 5]
+        # Post-process to handle Tagalog/Taglish utterances that may contain
+        # multiple imperatives or requests without punctuation (e.g., "Pwede... Tumalon... Pakisara...").
+        def _split_tagalog_commands(sentence):
+            if not sentence:
+                return []
+
+            # Common Tagalog polite/request markers and imperative verbs that often begin separate action items
+            markers = [
+                r"\bpwede\b",
+                r"\bpak(i|a)[a-z]*\b",
+                r"\btumalon\b",
+                r"\bsara\b",
+                r"\bbukas\b",
+                r"\btawag\b",
+                r"\bilipat\b",
+                r"\btulong\b",
+                r"\bsubmit\b",
+                r"\bsend\b",
+                r"\bprepare\b",
+            ]
+
+            pattern = re.compile(r"(" + r"|".join(markers) + r")", flags=re.IGNORECASE)
+
+            # If no marker found, return original sentence
+            if not pattern.search(sentence):
+                return [sentence]
+
+            parts = []
+            last_idx = 0
+            for m in pattern.finditer(sentence):
+                start = m.start()
+                # If the marker appears at position 0, don't split before it.
+                if start == 0:
+                    continue
+
+                # Capture preceding chunk if it's non-empty and reasonably long
+                chunk = sentence[last_idx:start].strip()
+                if chunk:
+                    parts.append(chunk)
+                last_idx = start
+
+            tail = sentence[last_idx:].strip()
+            if tail:
+                parts.append(tail)
+
+            # Ensure each returned part is cleaned and long enough
+            cleaned = [p.strip(" ,.;:\n\t") for p in parts if p and len(p.split()) > 1]
+            return cleaned if cleaned else [sentence]
+
+        final = []
+        for s in merged:
+            for piece in _split_tagalog_commands(s):
+                if piece and len(piece) > 5:
+                    final.append(piece)
+
+        return final
 
     def _looks_like_specific_task(self, sentence):
         """Detect whether a sentence is a concrete assigned task with ownership or timing."""

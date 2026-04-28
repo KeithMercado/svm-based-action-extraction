@@ -16,7 +16,6 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.feature_extraction.text import HashingVectorizer
 from app.export_service import ExportService
 from core.segmenter import Segmenter
-from src.components.pdf_layout_editor import PDFLayoutEditorDialog
 
 try:
     from integrations.groq.transcribe import transcribe_with_groq
@@ -506,22 +505,6 @@ class AppLogic:
         
         return topics if topics else None
 
-    def _prompt_pdf_layout_config(self, action_items):
-        """Open a modal layout editor on the UI thread and return export preferences."""
-        done_event = threading.Event()
-        result_holder = {"result": None}
-
-        def open_dialog():
-            try:
-                dialog = PDFLayoutEditorDialog(self.view, action_items=action_items)
-                result_holder["result"] = dialog.show_modal()
-            finally:
-                done_event.set()
-
-        self.view.after(0, open_dialog)
-        done_event.wait()
-        return result_holder["result"]
-
     def _process_file_to_pdf(self, file_path):
         t_start = time.perf_counter()
         media_duration_seconds = self._get_media_duration_seconds(file_path)
@@ -532,87 +515,40 @@ class AppLogic:
         if not text.strip():
             raise RuntimeError("No speech detected.")
 
-        # Phase 2: Use Segmenter for semantic segmentation with topical descriptions
-        self.segmenter.segment_text(text)
-        segment_metadata = self.segmenter.get_segment_metadata()
-        
-        # Extract actions from segment raw text
-        action_items = []
-        for segment in segment_metadata:
-            segment_text = segment.get("raw_text", "")
-            # Split by sentences and check each for action classification
-            sentences = [s.strip() for s in segment_text.split(".") if s.strip()]
-            for sentence in sentences:
-                if sentence:
-                    if self._looks_like_information_override(sentence):
-                        prediction = 0
-                    else:
-                        prediction = self.classifier.predict(self._get_features(sentence))[0]
-                    if prediction == 1:
-                        action_items.append(sentence)
-        
-        # Extract topical descriptions for PDF
-        topic_labels = self._extract_topic_labels_from_metadata()
-
+        # Fast Llama-first extraction: one pass over transcript for action phrases.
         t1 = time.perf_counter()
-        combined_summary = self._summarize_chunk(text, action_items, "groq")
+        extraction = self.exporter.extract_action_items_fast(text)
+        preview_action_items = extraction.get("action_items", [])
         summarize_time = time.perf_counter() - t1
 
-        unique_actions = []
-        seen = set()
-        for item in action_items:
-            key = item.strip().lower()
-            if key and key not in seen:
-                seen.add(key)
-                unique_actions.append(item.strip())
-
-        llama_action_items = self.exporter.formatter.extract_llama_action_items(combined_summary)
-        editor_action_items = []
-        seen_editor = set()
-        for item in unique_actions + llama_action_items:
-            key = re.sub(r"\s+", " ", item.strip().lower())
-            if key and key not in seen_editor:
-                seen_editor.add(key)
-                editor_action_items.append(item.strip())
-
-        layout_config = self._prompt_pdf_layout_config(editor_action_items)
-        if layout_config is None:
-            return {
-                "cancelled": True,
-                "text": text,
-                "timings": {
-                    "transcription": transcribe_time,
-                    "summarization": summarize_time,
-                    "pdf": 0.0,
-                    "total": time.perf_counter() - t_start,
-                },
-            }
-
-        selected_actions = layout_config.get("selected_action_items", unique_actions)
-        section_order = layout_config.get("section_order")
-        include_sections = layout_config.get("include_sections")
-
-        t2 = time.perf_counter()
-        pdf_path = self.exporter.generate_pdf(
-            content=text,
-            action_items=selected_actions,
-            summary=combined_summary,
-            duration_seconds=media_duration_seconds,
-            source_file=file_path,
-            topics=topic_labels,
-            section_order=section_order,
-            include_sections=include_sections,
-        )
-        pdf_time = time.perf_counter() - t2
+        # Build real preview content so the viewer does not fall back to placeholders.
+        preview_summary = self.exporter.build_preview_summary(text, action_items=preview_action_items)
+        try:
+            self.segmenter.segment_text(text)
+            preview_topics = self._extract_topic_labels_from_metadata() or []
+        except Exception:
+            preview_topics = []
 
         total_time = time.perf_counter() - t_start
+
+        def open_preview():
+            self.view.open_pdf_preview(
+                text,
+                source_file=file_path,
+                summary_text=preview_summary,
+                topics=preview_topics,
+            )
+
+        self.view.after(0, open_preview)
+
         return {
             "text": text,
-            "pdf_path": pdf_path,
+            "preview_opened": True,
+            "action_items": preview_action_items,
             "timings": {
                 "transcription": transcribe_time,
                 "summarization": summarize_time,
-                "pdf": pdf_time,
+                "pdf": 0.0,
                 "total": total_time,
             },
         }
