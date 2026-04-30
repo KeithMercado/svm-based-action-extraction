@@ -492,22 +492,19 @@ class AppLogic:
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _extract_topic_labels_from_metadata(self):
-        """Extract Llama-generated topical descriptions from Phase 2 segmentation metadata."""
-        metadata = self.segmenter.get_segment_metadata()
-        topics = []
-        for segment in metadata:
-            topical_desc = segment.get("topical_description", "").strip()
-            if topical_desc:
-                # Truncate if too long
-                topic = topical_desc[:80] + "..." if len(topical_desc) > 80 else topical_desc
-                topics.append(topic)
-        
+    def _extract_topic_labels_from_transcript(self, transcript_text):
+        """Build topic labels using the exporter so language-aware fallbacks stay consistent."""
+        topics = self.exporter.build_topic_labels(transcript_text)
         return topics if topics else None
 
-    def _process_file_to_pdf(self, file_path):
+    def _process_file_to_pdf(self, file_path, fallback_duration_seconds=None):
         t_start = time.perf_counter()
         media_duration_seconds = self._get_media_duration_seconds(file_path)
+        if media_duration_seconds is None and fallback_duration_seconds is not None:
+            try:
+                media_duration_seconds = max(0.0, float(fallback_duration_seconds))
+            except Exception:
+                media_duration_seconds = None
 
         t0 = time.perf_counter()
         text = self._transcribe_file(file_path, engine="groq", language="tl", quiet=True)
@@ -523,11 +520,7 @@ class AppLogic:
 
         # Build real preview content so the viewer does not fall back to placeholders.
         preview_summary = self.exporter.build_preview_summary(text, action_items=preview_action_items)
-        try:
-            self.segmenter.segment_text(text)
-            preview_topics = self._extract_topic_labels_from_metadata() or []
-        except Exception:
-            preview_topics = []
+        preview_topics = self._extract_topic_labels_from_transcript(text) or []
 
         total_time = time.perf_counter() - t_start
 
@@ -537,6 +530,7 @@ class AppLogic:
                 source_file=file_path,
                 summary_text=preview_summary,
                 topics=preview_topics,
+                duration_seconds=media_duration_seconds,
             )
 
         self.view.after(0, open_preview)
@@ -618,7 +612,11 @@ class AppLogic:
 
         def worker():
             try:
-                result = self._process_file_to_pdf(saved_path)
+                # Capture duration from audio stream (live recording elapsed time)
+                fallback_duration = getattr(self.audio, "elapsed_offset_seconds", None) or 0.0
+                if fallback_duration < 0.1:  # Ensure we have a reasonable value
+                    fallback_duration = None
+                result = self._process_file_to_pdf(saved_path, fallback_duration_seconds=fallback_duration)
                 if result.get("cancelled"):
                     self.view.after(0, self._append_system_text, "PDF generation cancelled.")
                     return
