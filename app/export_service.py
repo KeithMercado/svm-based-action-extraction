@@ -411,6 +411,7 @@ class ExportService:
     DEFAULT_SECTIONS = [
         "Executive Overview",
         "Topics Discussed",
+        "Analytics Overview",
         "Action Items",
         "Full Transcript",
     ]
@@ -441,28 +442,164 @@ class ExportService:
         except Exception:
             return None
 
+    def _detect_transcript_style(self, transcript_text):
+        """Guess whether the transcript is English, Tagalog, or Taglish."""
+        tokens = set(re.findall(r"[A-Za-zÀ-ÿ']+", (transcript_text or "").lower()))
+        if not tokens:
+            return "english"
+
+        tagalog_markers = {
+            "ako", "ikaw", "siya", "kami", "tayo", "kayo", "sila", "natin", "namin",
+            "gawin", "gagawin", "kailangan", "paki", "po", "na", "nang", "lang", "ulit",
+            "pwede", "sige", "mamaya", "bukas", "ngayon", "yung", "ipasa", "buksan",
+            "isara", "ilagay", "tawag", "tawagan", "asikaso", "ayos", "update",
+        }
+        english_markers = {
+            "will", "should", "need", "needs", "assign", "deadline", "tomorrow", "today",
+            "please", "action", "follow", "update", "send", "review", "complete", "owner",
+        }
+
+        tagalog_hits = len(tokens.intersection(tagalog_markers))
+        english_hits = len(tokens.intersection(english_markers))
+
+        if tagalog_hits and english_hits:
+            return "taglish"
+        if tagalog_hits:
+            return "tagalog"
+        return "english"
+
+    def _split_action_phrase_chunks(self, text_value):
+        """Split a compound transcript chunk into separate action phrases when possible."""
+        text_value = re.sub(r"\s+", " ", (text_value or "")).strip()
+        if not text_value:
+            return []
+
+        chunks = [text_value]
+        split_patterns = [
+            r"\b(?:and then|then|at saka|saka|tapos|after that|next|and also|plus|but then|however|pero|but)\b",
+            r"\b(?:and|at|or)\b",
+            r"\s*[;,]\s*",
+        ]
+
+        for pattern in split_patterns:
+            next_chunks = []
+            for chunk in chunks:
+                parts = [part.strip(" ,;:-") for part in re.split(pattern, chunk, flags=re.IGNORECASE) if part.strip(" ,;:-")]
+                if len(parts) > 1:
+                    next_chunks.extend(parts)
+                else:
+                    cleaned = chunk.strip(" ,;:-")
+                    if cleaned:
+                        next_chunks.append(cleaned)
+            chunks = next_chunks
+
+        marker_pattern = re.compile(
+            r"\b(please|pwede|paki|can you|could you|need to|must|should|due|submit|send|prepare|review|finalize|update|document|record|log|check|coordinate|schedule|arrange|ipasa|buksan|isara|ilagay|tawagan|asikaso|ayos|gawin)\b",
+            flags=re.IGNORECASE,
+        )
+
+        split_chunks = []
+        for chunk in chunks:
+            matches = list(marker_pattern.finditer(chunk))
+            if len(matches) <= 1:
+                split_chunks.append(chunk)
+                continue
+
+            last_idx = 0
+            for match in matches:
+                start = match.start()
+                if start == 0:
+                    continue
+                piece = chunk[last_idx:start].strip(" ,;:-")
+                if piece:
+                    split_chunks.append(piece)
+                last_idx = start
+
+            tail = chunk[last_idx:].strip(" ,;:-")
+            if tail:
+                split_chunks.append(tail)
+
+        cleaned = []
+        seen = set()
+        for chunk in split_chunks:
+            normalized = re.sub(r"\s+", " ", chunk).strip()
+            normalized = re.sub(r"\b(?:and|at|or)\s*$", "", normalized, flags=re.IGNORECASE).strip()
+            if len(normalized.split()) <= 1:
+                continue
+            key = normalized.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append(normalized)
+
+        return cleaned if cleaned else [text_value]
+
+    def _score_action_evidence(self, action_item):
+        """Assign a conservative evidence score and basis text to an action item."""
+        item = re.sub(r"\s+", " ", (action_item or "")).strip().lower()
+        if not item:
+            return 0.0, "No action text was available."
+
+        score = 0.12
+        basis = []
+
+        if any(marker in item for marker in ["please", "pwede", "paki", "can you", "could you", "need to", "must", "should"]):
+            score += 0.34
+            basis.append("request/directive cue")
+
+        if any(marker in item for marker in ["due", "deadline", "by ", "before ", "eod", "tomorrow", "today"]):
+            score += 0.22
+            basis.append("timing/deadline cue")
+
+        if any(marker in item for marker in ["submit", "send", "prepare", "review", "finalize", "update", "document", "record", "log", "check", "coordinate", "schedule", "arrange", "ipasa", "buksan", "isara", "ilagay", "tawagan", "asikaso", "ayos", "gawin"]):
+            score += 0.24
+            basis.append("task/action verb cue")
+
+        if len(item.split()) >= 6:
+            score += 0.08
+            basis.append("sufficient context")
+
+        score = min(score, 0.99)
+        basis_text = "; ".join(basis) if basis else "Matched the action-item pattern."
+        return score, basis_text
+
+    def _build_language_aware_topic_labels(self, transcript_text, max_topics=5):
+        """Build transcript-derived topic labels that preserve the transcript language."""
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", transcript_text or "") if s.strip()]
+        topics = []
+        seen = set()
+
+        for sentence in sentences:
+            candidate = re.sub(r"\s+", " ", sentence).strip(" ,;:-")
+            if len(candidate.split()) < 4:
+                continue
+
+            topic = candidate
+            for separator in (" and ", " at ", " then ", " saka ", " tapos ", " after that ", " pero ", " but "):
+                if separator in topic.lower():
+                    topic = re.split(separator, topic, maxsplit=1, flags=re.IGNORECASE)[0].strip()
+                    break
+
+            words = topic.split()
+            if len(words) > 10:
+                topic = " ".join(words[:10]).strip()
+
+            normalized = re.sub(r"\s+", " ", topic.lower())
+            if not normalized or normalized in seen:
+                continue
+
+            seen.add(normalized)
+            topics.append(topic)
+            if len(topics) >= max_topics:
+                break
+
+        return topics
+
     def extract_action_items_fast(self, transcript_text, max_items=25):
         """Fast Llama-first extractor that returns only transcript-grounded action phrases."""
         clean_text = self.formatter.clean_transcript_text(transcript_text)
         sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", clean_text) if s.strip()]
         details = []
-
-        def trim_action_phrase(text_value):
-            text_value = re.sub(r"\s+", " ", (text_value or "")).strip()
-            if not text_value:
-                return ""
-
-            # Split on common discourse separators and keep the chunk with strongest task cue.
-            chunks = [c.strip(" ,;:-") for c in re.split(r"\b(?:and then|then|at saka|pero|but|however)\b", text_value, flags=re.IGNORECASE) if c.strip()]
-            if len(chunks) <= 1:
-                return text_value
-
-            cue_pattern = re.compile(
-                r"\b(please|pwede|paki|can you|could you|need to|must|should|due|submit|send|prepare|review|asikasuhin)\b",
-                flags=re.IGNORECASE,
-            )
-            scored = sorted(chunks, key=lambda c: (1 if cue_pattern.search(c) else 0, len(c)), reverse=True)
-            return scored[0] if scored else text_value
 
         # Regex fallback (also used as safety net when model output is invalid).
         def fallback_candidates():
@@ -480,6 +617,12 @@ class ExportService:
                 r"\bsend\b",
                 r"\bprepare\b",
                 r"\breview\b",
+                r"\bipasa\b",
+                r"\bbuksan\b",
+                r"\bisara\b",
+                r"\bilagay\b",
+                r"\bupdate\b",
+                r"\bfinalize\b",
             ]
             pattern = re.compile("|".join(markers), flags=re.IGNORECASE)
             out = []
@@ -546,30 +689,40 @@ class ExportService:
             if not text_value:
                 continue
 
-            text_value = trim_action_phrase(text_value)
+            for chunk in self._split_action_phrase_chunks(text_value):
+                chunk = re.sub(r"\s+", " ", chunk).strip()
+                if not chunk:
+                    continue
 
-            # Keep only direct transcript matches to avoid fabricated wording.
-            if text_value.lower() not in lowered_clean:
-                continue
+                # Keep only direct transcript matches to avoid fabricated wording.
+                if chunk.lower() not in lowered_clean:
+                    continue
 
-            norm = re.sub(r"\s+", " ", text_value.lower())
-            if norm in seen:
-                continue
-            seen.add(norm)
+                norm = re.sub(r"\s+", " ", chunk.lower())
+                if norm in seen:
+                    continue
+                seen.add(norm)
 
-            action_items.append(text_value)
-            details.append(
-                {
-                    "item": text_value,
-                    "reason": str(item.get("why", "")).strip() or "Contains an explicit task/request cue.",
-                }
-            )
+                score, basis_text = self._score_action_evidence(chunk)
+                action_items.append(chunk)
+                details.append(
+                    {
+                        "item": chunk,
+                        "reason": str(item.get("why", "")).strip() or basis_text,
+                        "weight": score,
+                        "basis": basis_text,
+                    }
+                )
+                if len(action_items) >= max_items:
+                    break
+
             if len(action_items) >= max_items:
                 break
 
         return {
             "action_items": action_items,
             "details": details,
+            "confidence_scores": [float(detail.get("weight", 0.0)) for detail in details],
             "total_sentences": len(sentences),
             "clean_transcript": clean_text,
         }
@@ -586,13 +739,34 @@ class ExportService:
         action_count = len(action_items)
         info_count = max(0, total_sentences - action_count)
 
-        def _extract_keywords_with_weights(items, top_n=5):
+        def _extract_keywords_with_weights(items, top_n=None):
+            """Extract ALL action markers with weights. If top_n=None, returns all. Otherwise top N."""
             tokens = []
-            stop_words = {"please", "paki", "pwede", "bang", "ng", "mga", "the", "and", "for", "with", "that", "this", "will", "team", "you", "your"}
+            action_cues_used = []
+            
+            stop_words = {
+                "please", "paki", "pwede", "bang", "ng", "mga", "the", "and", "for", "with", 
+                "that", "this", "will", "team", "you", "your", "can", "could", "need", "must",
+                "should", "have", "has", "be", "been", "being", "is", "are", "was", "were",
+            }
+            
+            # Comprehensive multilingual action cues: English, Tagalog, Taglish
             action_cues = {
+                # English action verbs
                 "submit", "send", "prepare", "review", "complete", "finalize", "update",
                 "coordinate", "call", "follow", "draft", "deliver", "share", "check",
+                "run", "create", "close", "isolate", "document", "execute", "schedule",
+                "arrange", "investigate", "implement", "test", "deploy", "verify", "validate",
+                "configure", "analyze", "audit", "approve", "reject", "merge", "revert",
+                "fix", "patch", "release", "publish", "assign", "reassign", "escalate",
+                "notify", "inform", "alert", "confirm", "clarify", "explain", "summarize",
+                # Tagalog action verbs
                 "sara", "bukas", "tawag", "ilipat", "tulong", "asikaso", "ayos", "gawa",
+                "ipasa", "buksan", "isara", "ilagay", "ipaalam", "iupdate", "icheck",
+                "bigyan", "bayaran", "gatarin", "tiyakin", "suriin", "basahin", "sulatin",
+                "sabihin", "tanungin", "tumingin", "magsimula", "magtrabaho", "magpatibay",
+                # Taglish blend
+                "idraft", "ireview", "isubmit", "idocument", "icoordinate",
             }
 
             for item in items:
@@ -602,9 +776,10 @@ class ExportService:
                         continue
                     if word in stop_words:
                         continue
-                    # Keep action-like words first; if none are found we will fallback below.
+                    # Keep action-like words first
                     if word in action_cues:
                         tokens.append(word)
+                        action_cues_used.append(word)
 
             # Fallback to generic keyword extraction when action-cue-only set is empty.
             if not tokens:
@@ -620,7 +795,13 @@ class ExportService:
             from collections import Counter
             counter = Counter(tokens)
             total = sum(counter.values()) or 1
-            top = counter.most_common(top_n)
+            
+            # If top_n is None, return ALL markers; otherwise return top N
+            if top_n is None:
+                top = counter.most_common()
+            else:
+                top = counter.most_common(top_n)
+            
             # return list of (word, count, weight_float)
             tuples = [(w, c, float(c) / float(total)) for w, c in top]
             rows = [
@@ -636,7 +817,9 @@ class ExportService:
             ]
             return tuples, int(sum(counter.values())), rows
 
-        weighted_keywords, total_keyword_tokens, weight_rows = _extract_keywords_with_weights(action_items)
+        # Extract ALL keywords (top_n=None) and also keep top 8 for compact display
+        all_keywords, total_keyword_tokens, all_keyword_rows = _extract_keywords_with_weights(action_items, top_n=None)
+        top_keywords, _, top_keyword_rows = _extract_keywords_with_weights(action_items, top_n=8)
 
         return {
             "total_sentences": total_sentences,
@@ -644,9 +827,11 @@ class ExportService:
             "info_count": info_count,
             "action_ratio": (action_count / total_sentences) if total_sentences else 0.0,
             "info_ratio": (info_count / total_sentences) if total_sentences else 0.0,
-            "top_action_keywords": weighted_keywords,
+            "all_action_keywords": all_keywords,
+            "top_action_keywords": top_keywords,
             "action_keyword_total_tokens": total_keyword_tokens,
-            "top_action_keyword_rows": weight_rows,
+            "all_action_keyword_rows": all_keyword_rows,
+            "top_action_keyword_rows": top_keyword_rows,
             "action_items": action_items,
         }
 
@@ -689,6 +874,13 @@ class ExportService:
         if not clean_text:
             return []
 
+        style = self._detect_transcript_style(clean_text)
+
+        if style in {"tagalog", "taglish"}:
+            topics = self._build_language_aware_topic_labels(clean_text, max_topics=max_topics)
+            if topics:
+                return topics
+
         try:
             from core.segmenter import Segmenter
 
@@ -711,6 +903,10 @@ class ExportService:
                 return topics
         except Exception:
             pass
+
+        topics = self._build_language_aware_topic_labels(clean_text, max_topics=max_topics)
+        if topics:
+            return topics
 
         sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", clean_text) if s.strip()]
         topics = []
@@ -744,10 +940,14 @@ class ExportService:
         if action_count == 0 and info_count == 0:
             return None
 
-        # Create combined figure: left doughnut (action vs info), right horizontal bars for top keywords
-        top_keywords = analytics.get("top_action_keywords", []) or []
+        # Create combined figure: left doughnut (action vs info), right horizontal bars for ALL markers
+        all_keywords = analytics.get("all_action_keywords", []) or []
+        
+        # Dynamically adjust chart height based on number of markers (min 2.8", +0.15" per marker)
+        num_markers = len(all_keywords)
+        fig_height = max(2.8, 2.0 + (num_markers * 0.15))
 
-        fig = plt.figure(figsize=(7.0, 2.8), dpi=160)
+        fig = plt.figure(figsize=(7.0, fig_height), dpi=160)
         gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1.4], wspace=0.3)
 
         # Left: doughnut pie
@@ -771,26 +971,35 @@ class ExportService:
         total_label = analytics.get("total_sentences", 0)
         ax0.text(0, 0, f"{total_label}\nsegments", ha="center", va="center", fontsize=10, color="#0f1720")
 
-        # Right: horizontal bars for keywords (if present)
+        # Right: horizontal bars for ALL action markers
         ax1 = fig.add_subplot(gs[1])
-        if top_keywords:
-            words = [w for w, c, wt in top_keywords]
-            counts = [c for w, c, wt in top_keywords]
-            weights = [wt for w, c, wt in top_keywords]
+        if all_keywords:
+            words = [w for w, c, wt in all_keywords]
+            counts = [c for w, c, wt in all_keywords]
+            weights = [wt for w, c, wt in all_keywords]
             # Display from top to bottom
             y_pos = list(range(len(words)))[::-1]
             ax1.barh(y_pos, counts[::-1], color="#a45bd6")
             ax1.set_yticks(y_pos)
-            ax1.set_yticklabels(words[::-1], fontsize=9)
+            fontsize = max(7, min(9, 200 / (num_markers + 5)))  # Scale font size by marker count
+            ax1.set_yticklabels(words[::-1], fontsize=fontsize)
             ax1.invert_yaxis()
-            ax1.xaxis.set_visible(False)
+            ax1.set_xlabel("Evidence weight", fontsize=9, color="#0f1720")
             ax1.set_xlim(0, max(1, max(counts) * 1.3))
-            # Annotate counts and percentages
+            # Annotate the evidence basis and weight score.
+            anno_fontsize = max(6, min(8, 180 / (num_markers + 5)))
             for i, (cnt, wt) in enumerate(zip(counts[::-1], weights[::-1])):
-                ax1.text(cnt + (max(counts) * 0.02), i, f"{cnt}  ({int(round(wt*100))}%)", va="center", fontsize=9, color="#0f1720")
-            ax1.set_title("Action Keyword Frequency", fontsize=11, pad=8)
+                ax1.text(
+                    cnt + (max(counts) * 0.02),
+                    i,
+                    f"w={wt:.2f} (n={cnt})",
+                    va="center",
+                    fontsize=anno_fontsize,
+                    color="#0f1720",
+                )
+            ax1.set_title("All Action Markers", fontsize=11, pad=8)
         else:
-            ax1.text(0.5, 0.5, "No recurring action keywords detected.", ha="center", va="center", fontsize=10, color="#6b7280")
+            ax1.text(0.5, 0.5, "No action markers detected.", ha="center", va="center", fontsize=10, color="#6b7280")
             ax1.set_axis_off()
 
         temp_file = NamedTemporaryFile(delete=False, suffix=".png")
@@ -985,7 +1194,7 @@ class ExportService:
         story.append(Paragraph(f"<b>Meeting Duration:</b> {duration_str}", report_styles["meta"]))
         story.append(Spacer(1, 0.18 * inch))
 
-        if analytics:
+        if "Analytics Overview" in selected_sections and analytics:
             story.append(Paragraph("Analytics Overview", report_styles["heading"]))
             story.append(
                 Paragraph(
@@ -998,9 +1207,9 @@ class ExportService:
                 )
             )
             if analytics.get("top_action_keywords"):
-                # top_action_keywords contains (word, count, weight)
+                # top_action_keywords is marker-first: (word, count, weight)
                 keyword_text = ", ".join(f"{word} ({count}, {int(round(weight*100))}%)" for word, count, weight in analytics["top_action_keywords"])
-                story.append(Paragraph(f"<b>Common action keywords:</b> {escape(keyword_text)}", report_styles["meta"]))
+                story.append(Paragraph(f"<b>Common action markers:</b> {escape(keyword_text)}", report_styles["meta"]))
 
             # Prefer showing separate images side-by-side when available
             if breakdown_path and keywords_path and os.path.exists(breakdown_path) and os.path.exists(keywords_path):
@@ -1046,6 +1255,25 @@ class ExportService:
                         story.append(Paragraph(f"<b>{idx}.</b> {escape(clean_topic)}", report_styles["body"]))
                 if not has_topics:
                     story.append(Paragraph("<i>No topics were identified.</i>", report_styles["body"]))
+                story.append(Spacer(1, 0.1 * inch))
+                continue
+
+            if section == "Analytics Overview":
+                story.append(Paragraph("Analytics Overview", report_styles["heading"]))
+                if analytics:
+                    story.append(
+                        Paragraph(
+                            escape(
+                                f"Total sentences detected: {analytics['total_sentences']}. "
+                                f"Suggested action items: {analytics['action_count']}. "
+                                f"Information sentences: {analytics['info_count']}."
+                            ),
+                            report_styles["body"],
+                        )
+                    )
+                    if analytics.get("top_action_keywords"):
+                        keyword_text = ", ".join(f"{word} ({count}, {int(round(weight*100))}%)" for word, count, weight in analytics["top_action_keywords"])
+                        story.append(Paragraph(f"<b>Common action markers:</b> {escape(keyword_text)}", report_styles["meta"]))
                 story.append(Spacer(1, 0.1 * inch))
                 continue
 
