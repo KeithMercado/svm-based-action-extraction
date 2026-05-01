@@ -35,230 +35,267 @@ class PDFPreviewWindow(ctk.CTkToplevel):
         self.keywords_path = None
         self.section_rows = []
         self.cb_vars = []
+        self._dragged_idx = None
 
-        self.title("PDF Preview & Export")
+        self.title("Meeting Analytics & PDF Export")
+        self.configure(fg_color="#1d2027")  # Match gui.py color palette
+        
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
-        preview_width = min(1440, max(1160, int(screen_width * 0.94)))
-        preview_height = min(900, max(760, int(screen_height * 0.88)))
+        preview_width = min(1440, max(1200, int(screen_width * 0.94)))
+        preview_height = min(900, max(800, int(screen_height * 0.88)))
         self.geometry(f"{preview_width}x{preview_height}")
-        self.minsize(1160, 760)
+        self.minsize(1000, 700)
         self.resizable(True, True)
         self.transient(parent)
         self.grab_set()
 
         self.protocol("WM_DELETE_WINDOW", self._close_window)
 
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=0)
-        self.grid_columnconfigure(0, weight=0, minsize=360)
-        self.grid_columnconfigure(1, weight=1)
+        # Configure main grid
+        self.grid_rowconfigure(0, weight=0) # Header
+        self.grid_rowconfigure(1, weight=0) # Dashboard
+        self.grid_rowconfigure(2, weight=1) # Main Content
+        self.grid_columnconfigure(0, weight=1)
 
         self._build_layout()
         self._load_analytics_images()
         self._render_preview()
 
     def _build_layout(self):
-        """Build the main layout with left and right panels."""
-        content = ctk.CTkFrame(self, fg_color="transparent")
-        content.grid(row=0, column=0, columnspan=2, sticky="nsew", padx=12, pady=(12, 6))
-        content.grid_rowconfigure(0, weight=1)
-        content.grid_columnconfigure(0, weight=0, minsize=360)
-        content.grid_columnconfigure(1, weight=1)
+        # 1. Top Header Frame
+        header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        header_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(15, 10))
+        header_frame.grid_columnconfigure(0, weight=1)
+        header_frame.grid_columnconfigure(1, weight=0)
 
-        left_panel = ctk.CTkFrame(content, fg_color="transparent")
-        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=0)
-        left_panel.grid_rowconfigure(0, weight=1)
-        left_panel.grid_columnconfigure(0, weight=1)
+        title_label = ctk.CTkLabel(header_frame, text="Meeting Minutes & Insights", font=("Inter", 24, "bold"), text_color="#e1e1e1")
+        title_label.grid(row=0, column=0, sticky="w")
+        
+        btn_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        btn_frame.grid(row=0, column=1, sticky="e")
 
-        self.left = ctk.CTkScrollableFrame(left_panel, fg_color="transparent")
-        self.left.grid(row=0, column=0, sticky="nsew")
+        refresh_btn = ctk.CTkButton(btn_frame, text="Refresh Preview", width=140, height=36, fg_color="#3a3f46", hover_color="#4b515a", command=self._render_preview)
+        refresh_btn.pack(side="left", padx=(0, 10))
 
-        right_panel = ctk.CTkFrame(content, fg_color="transparent")
-        right_panel.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=0)
-        right_panel.grid_rowconfigure(0, weight=1)
-        right_panel.grid_columnconfigure(0, weight=1)
+        export_btn = ctk.CTkButton(btn_frame, text="Download PDF", width=160, height=36, fg_color="#1f6aa5", hover_color="#144870", command=self._export_pdf)
+        export_btn.pack(side="left")
 
-        self.right = ctk.CTkScrollableFrame(right_panel, fg_color="transparent")
-        self.right.grid(row=0, column=0, sticky="nsew")
+        # 2. Top Dashboard Frame (Analytics)
+        dashboard_frame = ctk.CTkFrame(self, fg_color="#252729", corner_radius=12)
+        dashboard_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 15))
+        dashboard_frame.grid_rowconfigure(0, weight=1)
+        dashboard_frame.grid_columnconfigure(0, weight=1, uniform="dash") # Info
+        dashboard_frame.grid_columnconfigure(1, weight=1, uniform="dash") # Breakdown
+        dashboard_frame.grid_columnconfigure(2, weight=1, uniform="dash") # Keywords
 
-        self._build_right_panel()
-        self._build_left_panel()
-
-        btn_row = ctk.CTkFrame(self, fg_color="transparent")
-        btn_row.grid(row=1, column=0, columnspan=2, sticky="ew", padx=12, pady=(6, 12))
-
-        export_btn = ctk.CTkButton(btn_row, text="Download PDF", width=160, height=36, fg_color="#1f6aa5", command=self._export_pdf)
-        export_btn.pack(side="right", padx=(6, 0))
-
-        refresh_btn = ctk.CTkButton(btn_row, text="Refresh Preview", width=140, height=36, fg_color="#3a3f46", command=self._render_preview)
-        refresh_btn.pack(side="right", padx=(0, 6))
-
-    def _build_right_panel(self):
-        """Build right panel with analytics, duration, and preview."""
-        analytics_frame = ctk.CTkFrame(self.right, fg_color="transparent")
-        analytics_frame.pack(fill="x", pady=(0, 8))
-
-        title_label = ctk.CTkLabel(analytics_frame, text="Preview: Minutes of the Meeting", font=("Inter", 16, "bold"))
-        title_label.pack(anchor="w")
-
-        # Duration display
+        # Dashboard: Info
+        info_frame = ctk.CTkFrame(dashboard_frame, fg_color="transparent")
+        info_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+        
         duration_text = self._format_duration(self.duration_seconds)
-        duration_label = ctk.CTkLabel(analytics_frame, text=f"Duration: {duration_text}", font=("Inter", 10), text_color="#9ca3af")
-        duration_label.pack(anchor="w", pady=(2, 0))
+        ctk.CTkLabel(info_frame, text="Session Intelligence", font=("Inter", 16, "bold"), text_color="#e1e1e1").pack(anchor="w", pady=(0, 10))
+        ctk.CTkLabel(info_frame, text=f"Duration: {duration_text}", font=("Inter", 13), text_color="#b7bcc4").pack(anchor="w", pady=(0, 5))
+        
+        self.stats_label = ctk.CTkLabel(info_frame, text="Analyzing transcript...", font=("Inter", 13), text_color="#b7bcc4")
+        self.stats_label.pack(anchor="w", pady=(0, 5))
 
-        self.stats_label = ctk.CTkLabel(analytics_frame, text="Analyzing transcript...", font=("Inter", 11))
-        self.stats_label.pack(anchor="w", pady=(6, 4))
-
-        analytics_card = ctk.CTkFrame(analytics_frame, fg_color="#20242b", corner_radius=10)
-        analytics_card.pack(fill="x", pady=(6, 8))
-
-        chart_label = ctk.CTkLabel(analytics_card, text="Building charts...", text_color="#cdd6e1")
-        chart_label.pack(padx=10, pady=(10, 2), anchor="w")
-
-        charts_row = ctk.CTkFrame(analytics_card, fg_color="transparent")
-        charts_row.pack(fill="both", expand=True, padx=10, pady=(4, 8))
-        charts_row.grid_columnconfigure(0, weight=1, uniform="charts")
-        charts_row.grid_columnconfigure(1, weight=1, uniform="charts")
-
-        breakdown_frame = ctk.CTkFrame(charts_row, fg_color="#1a1d21", width=160, height=140)
-        breakdown_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        breakdown_frame.pack_propagate(False)
-        self.breakdown_label = ctk.CTkLabel(breakdown_frame, text="Click to expand", text_color="#cdd6e1")
-        self.breakdown_label.pack(fill="both", expand=True, padx=8, pady=8)
-
-        keywords_frame = ctk.CTkFrame(charts_row, fg_color="#1a1d21", width=240, height=140)
-        keywords_frame.grid(row=0, column=1, sticky="nsew")
-        keywords_frame.pack_propagate(False)
-        self.keywords_label = ctk.CTkLabel(keywords_frame, text="Click to expand", text_color="#cdd6e1")
-        self.keywords_label.pack(fill="both", expand=True, padx=8, pady=8)
-
-        # Show ALL action markers
         all_kw = self.analytics.get("all_action_keywords", []) or []
+        keyword_text = "None"
         if all_kw:
-            keyword_lines = [f"{word} (w={weight:.2f}, n={count})" for word, count, weight in all_kw]
-            keyword_text = "  •  ".join(keyword_lines)
-        else:
-            keyword_text = "No action markers detected."
+            top_kws = [f"{word} ({count})" for word, count, weight in all_kw[:4]]
+            keyword_text = " • ".join(top_kws)
+        
+        ctk.CTkLabel(info_frame, text=f"Top Markers:\n{keyword_text}", font=("Inter", 12), text_color="#b7bcc4", wraplength=350, justify="left").pack(anchor="w", pady=(5, 0))
 
-        keyword_label = ctk.CTkLabel(
-            analytics_card,
-            text=f"All action markers: {keyword_text}",
-            wraplength=700,
-            justify="left",
-            text_color="#d6dbe3",
-            font=("Inter", 11),
+        # Dashboard: Breakdown Chart
+        breakdown_frame = ctk.CTkFrame(dashboard_frame, fg_color="#1d2027", corner_radius=10)
+        breakdown_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=15)
+        self.breakdown_label = ctk.CTkLabel(breakdown_frame, text="Loading chart...", text_color="#b7bcc4")
+        self.breakdown_label.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Dashboard: Keywords Chart
+        keywords_frame = ctk.CTkFrame(dashboard_frame, fg_color="#1d2027", corner_radius=10)
+        keywords_frame.grid(row=0, column=2, sticky="nsew", padx=(10, 20), pady=15)
+        self.keywords_label = ctk.CTkLabel(keywords_frame, text="Loading chart...", text_color="#b7bcc4")
+        self.keywords_label.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # 3. Main Area (Left: Config, Right: Preview)
+        # Symmetrical and Balanced Layout
+        main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        main_frame.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        main_frame.grid_rowconfigure(0, weight=1)
+        # weight=1 for both makes them equally balanced
+        main_frame.grid_columnconfigure(0, weight=1, uniform="main")
+        main_frame.grid_columnconfigure(1, weight=1, uniform="main")
+
+        # Config Panel (Left)
+        config_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        config_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        config_frame.grid_rowconfigure(1, weight=1) # Sections
+        config_frame.grid_rowconfigure(3, weight=1) # Items
+        config_frame.grid_columnconfigure(0, weight=1) # THIS WAS MISSING AND CAUSED THE HUGE GAP
+
+        sections_header = ctk.CTkLabel(config_frame, text="Report Structure (Drag to reorder)", font=("Inter", 14, "bold"), text_color="#e1e1e1")
+        sections_header.grid(row=0, column=0, sticky="w", pady=(0, 8))
+
+        # Match scrollbar to background for aesthetic appeal
+        self.sections_scroll = ctk.CTkScrollableFrame(
+            config_frame, fg_color="#252729", corner_radius=10, 
+            scrollbar_button_color="#252729", scrollbar_button_hover_color="#323538"
         )
-        keyword_label.pack(padx=10, pady=(0, 10), anchor="w")
-
-        self._bind_chart_preview(self.breakdown_label, self.breakdown_path, "Transcript Breakdown")
-        self._bind_chart_preview(self.keywords_label, self.keywords_path, "Action Markers")
-
-        why_frame = ctk.CTkFrame(self.right, fg_color="#20242b", corner_radius=10)
-        why_frame.pack(fill="x", pady=(8, 8))
-        why_title = ctk.CTkLabel(why_frame, text="Why This Was Flagged", font=("Inter", 13, "bold"), text_color="#eef3f8")
-        why_title.pack(anchor="w", padx=10, pady=(10, 6))
-
-        why_box = ctk.CTkTextbox(why_frame, height=96, wrap="word")
-        why_box.pack(fill="x", padx=10, pady=(0, 10))
-        why_box.insert("end", "These are conservative explanations based on the transcript text and model confidence scores.\n\n")
-        if self.action_details:
-            for idx, detail in enumerate(self.action_details, 1):
-                item_text = str(detail.get("item", "")).strip()
-                reason_text = str(detail.get("reason", "")).strip() or "Matched the action-item pattern."
-                basis_text = str(detail.get("basis", "")).strip()
-                confidence = self.model_weights[idx - 1] if idx - 1 < len(self.model_weights) else 0.0
-                why_box.insert("end", f"{idx}. {item_text}\n")
-                why_box.insert("end", f"   Why flagged: {reason_text}\n")
-                if basis_text:
-                    why_box.insert("end", f"   Basis: {basis_text}\n")
-                if confidence > 0:
-                    why_box.insert("end", f"   Evidence weight: {confidence:.2%}\n")
-                why_box.insert("end", "\n")
-        else:
-            why_box.insert("end", "No action items were detected.\n")
-        why_box.configure(state="disabled")
-
-    def _build_left_panel(self):
-        """Build left panel with sections and action items."""
-        sections_frame = ctk.CTkFrame(self.left, fg_color="transparent")
-        sections_frame.pack(fill="x", pady=(0, 8))
-
-        sections_label = ctk.CTkLabel(sections_frame, text="Report Sections (drag via Up/Down)", font=("Inter", 11, "bold"))
-        sections_label.pack(anchor="w", pady=(0, 6))
-
-        self.sections_list_frame = ctk.CTkFrame(sections_frame, fg_color="transparent")
-        self.sections_list_frame.pack(fill="x")
+        self.sections_scroll.grid(row=1, column=0, sticky="nsew", pady=(0, 15))
 
         for section_name in self.exporter.DEFAULT_SECTIONS:
             variable = ctk.BooleanVar(value=True)
             self.section_rows.append({"label": section_name, "var": variable})
-
+        
         self._rebuild_sections_ui()
 
-        list_frame = ctk.CTkFrame(self.left, fg_color="transparent")
-        list_frame.pack(fill="both", expand=True)
+        items_header = ctk.CTkLabel(config_frame, text="Extracted Action Items", font=("Inter", 14, "bold"), text_color="#e1e1e1")
+        items_header.grid(row=2, column=0, sticky="w", pady=(0, 8))
+
+        # Match scrollbar to background for aesthetic appeal
+        self.items_scroll = ctk.CTkScrollableFrame(
+            config_frame, fg_color="#252729", corner_radius=10,
+            scrollbar_button_color="#252729", scrollbar_button_hover_color="#323538"
+        )
+        self.items_scroll.grid(row=3, column=0, sticky="nsew")
 
         if self.action_items:
             for idx, item in enumerate(self.action_items, 1):
                 variable = ctk.BooleanVar(value=True)
                 confidence = self.model_weights[idx - 1] if idx - 1 < len(self.model_weights) else 0.0
-                display_text = f"{idx}. {item} ({confidence:.0%})" if confidence > 0 else f"{idx}. {item}"
-                checkbox = ctk.CTkCheckBox(list_frame, text=display_text, variable=variable, width=340)
-                checkbox.pack(anchor="w", pady=6)
+                display_text = f"{item} (Conf: {confidence:.0%})" if confidence > 0 else item
+                
+                item_frame = ctk.CTkFrame(self.items_scroll, fg_color="#1d2027", corner_radius=8)
+                item_frame.pack(fill="x", pady=4, padx=4)
+                
+                checkbox = ctk.CTkCheckBox(item_frame, text=display_text, variable=variable, font=("Inter", 12), hover_color="#323538", text_color="#b7bcc4")
+                checkbox.pack(anchor="w", padx=10, pady=10)
+                
                 self.cb_vars.append((variable, item))
         else:
-            none_label = ctk.CTkLabel(list_frame, text="No action items detected.", font=("Inter", 12), text_color="gray")
+            none_label = ctk.CTkLabel(self.items_scroll, text="No action items detected.", font=("Inter", 12), text_color="#b7bcc4")
             none_label.pack(pady=20)
 
-        preview_label = ctk.CTkLabel(self.right, text="PDF Preview", font=("Inter", 13, "bold"))
-        preview_label.pack(anchor="w", pady=(8, 0))
+        # Preview Panel (Right)
+        preview_frame = ctk.CTkFrame(main_frame, fg_color="#252729", corner_radius=12)
+        preview_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+        preview_frame.grid_rowconfigure(1, weight=1)
+        preview_frame.grid_columnconfigure(0, weight=1)
 
-        self.preview_box = ctk.CTkTextbox(self.right, width=340, height=300, state="normal")
-        self.preview_box.pack(fill="both", expand=True, pady=(6, 0))
+        preview_header = ctk.CTkLabel(preview_frame, text="PDF Content Preview", font=("Inter", 14, "bold"), text_color="#e1e1e1")
+        preview_header.grid(row=0, column=0, sticky="w", padx=20, pady=(15, 10))
 
+        # Match text color and background to gui.py styling
+        self.preview_box = ctk.CTkTextbox(
+            preview_frame, font=("Courier", 13), fg_color="#1d2027", text_color="#e1e1e1",
+            scrollbar_button_color="#1d2027", scrollbar_button_hover_color="#323538"
+        )
+        self.preview_box.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
+
+    # ---- Drag and Drop Implementation ----
+    
     def _rebuild_sections_ui(self):
-        """Rebuild section reordering UI."""
-        for child in self.sections_list_frame.winfo_children():
+        """Rebuild section reordering UI with drag and drop."""
+        for child in self.sections_scroll.winfo_children():
             child.destroy()
 
+        self.section_widgets = []
         for idx, entry in enumerate(self.section_rows):
-            row = ctk.CTkFrame(self.sections_list_frame, fg_color="transparent")
-            row.pack(fill="x", pady=2)
-            chk = ctk.CTkCheckBox(row, text=entry["label"], variable=entry["var"])
-            chk.pack(side="left", anchor="w")
-            up_btn = ctk.CTkButton(row, text="↑", width=28, height=22, fg_color="#2b3340", command=lambda i=idx: self._move_section_up(i))
-            up_btn.pack(side="right", padx=(6, 0))
-            down_btn = ctk.CTkButton(row, text="↓", width=28, height=22, fg_color="#2b3340", command=lambda i=idx: self._move_section_down(i))
-            down_btn.pack(side="right", padx=(6, 0))
+            row_frame = ctk.CTkFrame(self.sections_scroll, fg_color="#1d2027", corner_radius=8)
+            row_frame.pack(fill="x", pady=4, padx=4)
+            row_frame.drag_index = idx  # Store index directly on frame
+            
+            # Left grip icon
+            grip = ctk.CTkLabel(row_frame, text="≡", font=("Inter", 18, "bold"), text_color="#4a4d50", width=30, cursor="hand2")
+            grip.pack(side="left", padx=(10, 5))
+            
+            chk = ctk.CTkCheckBox(row_frame, text=entry["label"], variable=entry["var"], font=("Inter", 12), text_color="#b7bcc4")
+            chk.pack(side="left", anchor="w", pady=10, padx=(5, 10))
 
-    def _move_section_up(self, index):
-        """Move section up in order."""
-        if index <= 0:
-            return
-        self.section_rows[index - 1], self.section_rows[index] = self.section_rows[index], self.section_rows[index - 1]
-        self._rebuild_sections_ui()
-        self._render_preview()
+            # Bind events to the entire row frame for better drag responsiveness
+            row_frame.bind("<Button-1>", self._on_drag_start)
+            row_frame.bind("<B1-Motion>", self._on_drag_motion)
+            row_frame.bind("<ButtonRelease-1>", self._on_drag_release)
+            grip.bind("<Button-1>", self._on_drag_start)
+            grip.bind("<B1-Motion>", self._on_drag_motion)
+            grip.bind("<ButtonRelease-1>", self._on_drag_release)
 
-    def _move_section_down(self, index):
-        """Move section down in order."""
-        if index >= len(self.section_rows) - 1:
+            self.section_widgets.append(row_frame)
+
+    def _on_drag_start(self, event):
+        widget = event.widget
+        # Find the parent row frame
+        while widget and not hasattr(widget, 'drag_index'):
+            widget = widget.master
+        
+        if widget and hasattr(widget, 'drag_index'):
+            self._dragged_idx = widget.drag_index
+            widget.configure(fg_color="#3a4c63", border_width=2, border_color="#3b82f6")
+
+    def _on_drag_motion(self, event):
+        pass # Visual feedback during drag could be added here
+
+    def _on_drag_release(self, event):
+        if self._dragged_idx is None:
             return
-        self.section_rows[index + 1], self.section_rows[index] = self.section_rows[index], self.section_rows[index + 1]
-        self._rebuild_sections_ui()
-        self._render_preview()
+        
+        widget = event.widget
+        # Find the parent row frame
+        while widget and not hasattr(widget, 'drag_index'):
+            widget = widget.master
+        
+        # Reset visual state of dragged widget
+        if self._dragged_idx < len(self.section_widgets):
+            self.section_widgets[self._dragged_idx].configure(fg_color="#1d2027", border_width=0)
+        
+        if not widget or not hasattr(widget, 'drag_index'):
+            self._dragged_idx = None
+            return
+        
+        # Get absolute mouse Y position
+        mouse_y = event.x_root + event.y
+        
+        # Find which row_frame is closest to mouse_y
+        closest_idx = self._dragged_idx
+        min_dist = float('inf')
+        
+        for i, row in enumerate(self.section_widgets):
+            row_y = row.winfo_rooty()
+            row_height = row.winfo_height()
+            row_center_y = row_y + (row_height // 2)
+            dist = abs(mouse_y - row_center_y)
+            
+            if dist < min_dist:
+                min_dist = dist
+                closest_idx = i
+        
+        old_idx = self._dragged_idx
+        if old_idx != closest_idx:
+            item = self.section_rows.pop(old_idx)
+            self.section_rows.insert(closest_idx, item)
+            self._rebuild_sections_ui()
+            self._render_preview()
+        
+        self._dragged_idx = None
+
+    # ---- Charts and Preview Rendering ----
 
     def _load_analytics_images(self):
         """Load and display analytics chart images."""
         try:
-            self.breakdown_path, self.keywords_path = self.exporter._build_separate_analytics_charts(self.analytics)
+            # Build weight-based analytics instead of frequency-based
+            weight_analytics = self._build_weight_based_analytics()
+            self.breakdown_path, self.keywords_path = self.exporter._build_separate_analytics_charts(weight_analytics)
         except Exception:
             self.breakdown_path, self.keywords_path = (None, None)
 
         if self.breakdown_path and os.path.exists(self.breakdown_path):
             try:
                 image = Image.open(self.breakdown_path)
-                photo = ctk.CTkImage(image, size=(220, 180))
+                photo = ctk.CTkImage(image, size=(280, 160))
                 self.breakdown_label.configure(image=photo, text="")
                 self.breakdown_label.image = photo
             except Exception:
@@ -269,7 +306,7 @@ class PDFPreviewWindow(ctk.CTkToplevel):
         if self.keywords_path and os.path.exists(self.keywords_path):
             try:
                 image = Image.open(self.keywords_path)
-                photo = ctk.CTkImage(image, size=(360, 180))
+                photo = ctk.CTkImage(image, size=(280, 160))
                 self.keywords_label.configure(image=photo, text="")
                 self.keywords_label.image = photo
             except Exception:
@@ -282,36 +319,32 @@ class PDFPreviewWindow(ctk.CTkToplevel):
 
         info_count = max(0, self.total_sentences - len(self.action_items)) if self.total_sentences else None
         if info_count is None:
-            stats_text = f"Found {len(self.action_items)} suggested action item(s)."
+            stats_text = f"Action items: {len(self.action_items)}"
         else:
-            stats_text = f"Sentences: {self.total_sentences}  •  Action items: {len(self.action_items)}  •  Info: {info_count}"
+            stats_text = f"Sentences: {self.total_sentences}  •  Action: {len(self.action_items)}  •  Info: {info_count}"
         self.stats_label.configure(text=stats_text)
 
     def _bind_chart_preview(self, widget, image_path, title):
-        """Make a chart widget open a larger preview when clicked."""
-        if widget is None:
-            return
-
+        if widget is None: return
         def open_preview(_event=None):
             if image_path and os.path.exists(image_path):
                 self._open_chart_preview(image_path, title)
-
         widget.configure(cursor="hand2")
         widget.bind("<Button-1>", open_preview)
 
     def _open_chart_preview(self, image_path, title):
-        """Open a larger chart preview window."""
         popup = ctk.CTkToplevel(self)
         popup.title(title)
         popup.geometry("980x720")
+        popup.configure(fg_color="#1d2027")
         popup.minsize(720, 520)
         popup.transient(self)
         popup.grab_set()
 
-        frame = ctk.CTkFrame(popup, fg_color="#12161b")
+        frame = ctk.CTkFrame(popup, fg_color="#252729")
         frame.pack(fill="both", expand=True, padx=12, pady=12)
 
-        title_label = ctk.CTkLabel(frame, text=title, font=("Inter", 16, "bold"), text_color="#eef3f8")
+        title_label = ctk.CTkLabel(frame, text=title, font=("Inter", 16, "bold"), text_color="#e1e1e1")
         title_label.pack(anchor="w", padx=8, pady=(8, 4))
 
         image = Image.open(image_path)
@@ -328,7 +361,8 @@ class PDFPreviewWindow(ctk.CTkToplevel):
         """Render the PDF preview based on selected sections and items."""
         selected = [item for variable, item in self.cb_vars if variable.get()]
         self.preview_box.delete("1.0", "end")
-        self.preview_box.insert("end", "Minutes of the Meeting\n\n")
+        self.preview_box.insert("end", "Minutes of the Meeting\n")
+        self.preview_box.insert("end", "="*80 + "\n\n")
 
         current_order = [row["label"] for row in self.section_rows]
         included = {row["label"] for row in self.section_rows if row["var"].get()}
@@ -338,12 +372,14 @@ class PDFPreviewWindow(ctk.CTkToplevel):
                 continue
 
             if section_name == "Executive Overview":
-                self.preview_box.insert("end", "Executive Overview\n")
+                self.preview_box.insert("end", "[ Executive Overview ]\n")
+                self.preview_box.insert("end", "-"*80 + "\n")
                 summary_paragraphs = self.formatter.split_summary_into_paragraphs(self.summary_text, self.duration_seconds)
                 for paragraph in summary_paragraphs:
                     self.preview_box.insert("end", f"{paragraph}\n\n")
             elif section_name == "Topics Discussed":
-                self.preview_box.insert("end", "Topics Discussed\n")
+                self.preview_box.insert("end", "[ Topics Discussed ]\n")
+                self.preview_box.insert("end", "-"*80 + "\n")
                 if self.topics:
                     for idx, topic in enumerate(self.topics, 1):
                         self.preview_box.insert("end", f"{idx}. {topic}\n")
@@ -351,7 +387,8 @@ class PDFPreviewWindow(ctk.CTkToplevel):
                 else:
                     self.preview_box.insert("end", "- No topics were identified.\n\n")
             elif section_name == "Analytics Overview":
-                self.preview_box.insert("end", "Analytics Overview\n")
+                self.preview_box.insert("end", "[ Analytics Overview ]\n")
+                self.preview_box.insert("end", "-"*80 + "\n")
                 self.preview_box.insert("end", f"- Duration: {self._format_duration(self.duration_seconds)}\n")
                 self.preview_box.insert("end", f"- Sentences detected: {self.analytics.get('total_sentences', 0)}\n")
                 self.preview_box.insert("end", f"- Action items: {self.analytics.get('action_count', 0)}\n")
@@ -364,9 +401,10 @@ class PDFPreviewWindow(ctk.CTkToplevel):
                         + ", ".join(f"{word} ({count}, {int(round(weight * 100))}%)" for word, count, weight in kw_list)
                         + "\n",
                     )
-                self.preview_box.insert("end", "\n")
+                self.preview_box.insert("end", "\n(Charts will be included in the exported PDF)\n\n")
             elif section_name == "Action Items":
-                self.preview_box.insert("end", "Action Items:\n")
+                self.preview_box.insert("end", "[ Action Items ]\n")
+                self.preview_box.insert("end", "-"*80 + "\n")
                 if selected:
                     for idx, item in enumerate(selected, 1):
                         confidence = 0.0
@@ -381,19 +419,18 @@ class PDFPreviewWindow(ctk.CTkToplevel):
                         why = self.formatter.build_action_flag_reason(item)
                         if explanation:
                             self.preview_box.insert("end", f"   Task: {explanation}\n")
-                        self.preview_box.insert("end", f"   Why flagged: {why}\n")
+                        self.preview_box.insert("end", f"   Why flagged: {why}\n\n")
                 else:
-                    self.preview_box.insert("end", "No action items selected.\n")
-                self.preview_box.insert("end", "\n")
+                    self.preview_box.insert("end", "No action items selected.\n\n")
             elif section_name == "Full Transcript":
-                self.preview_box.insert("end", "Full Transcript:\n")
+                self.preview_box.insert("end", "[ Full Transcript ]\n")
+                self.preview_box.insert("end", "-"*80 + "\n")
                 transcript_excerpt = self.clean_transcript_text[:2000]
                 if len(self.clean_transcript_text) > 2000:
                     transcript_excerpt += "\n..."
                 self.preview_box.insert("end", transcript_excerpt)
 
     def _export_pdf(self):
-        """Export the PDF with selected sections and items."""
         selected = [item for variable, item in self.cb_vars if variable.get()]
         section_order = [row["label"] for row in self.section_rows]
         include_sections = [row["label"] for row in self.section_rows if row["var"].get()]
@@ -418,7 +455,6 @@ class PDFPreviewWindow(ctk.CTkToplevel):
             self._close_window()
 
     def _cleanup_temp_charts(self):
-        """Clean up temporary chart images."""
         for path in (self.breakdown_path, self.keywords_path):
             try:
                 if path and os.path.exists(path):
@@ -427,7 +463,6 @@ class PDFPreviewWindow(ctk.CTkToplevel):
                 pass
 
     def _close_window(self):
-        """Close the preview window safely."""
         self._cleanup_temp_charts()
         try:
             self.grab_release()
@@ -438,11 +473,53 @@ class PDFPreviewWindow(ctk.CTkToplevel):
         except Exception:
             pass
 
+    def _build_weight_based_analytics(self):
+        """Build analytics dict with weight-based action marker data.
+        Focuses on action verbs and initiation markers like: paki, should, do, make, submit, etc.
+        """
+        import re
+        
+        # Action markers and verbs that initiate tasks
+        action_verbs = {
+            'paki', 'pakisend', 'paki-send', 'pakisubmit', 'pakireview', 'pakiprepare',
+            'should', 'must', 'need', 'please', 'can', 'could', 'will',
+            'do', 'make', 'create', 'prepare', 'submit', 'send', 'draft',
+            'review', 'update', 'finalize', 'complete', 'develop', 'build',
+            'run', 'execute', 'implement', 'arrange', 'schedule', 'close',
+            'due', 'ipasa', 'buksan', 'isara', 'ilagay', 'gawin',
+            'document', 'outline', 'provide', 'analyze', 'schedule'
+        }
+        
+        # Extract action verbs from action items, weighted by confidence
+        weighted_verbs = {}
+        total_weight = 0
+        
+        for item, confidence in zip(self.action_items, self.model_weights):
+            # Extract words and check if they're action verbs
+            words = re.findall(r'\b[a-z]+\b', item.lower())
+            
+            for word in words:
+                if word in action_verbs:
+                    weighted_verbs[word] = weighted_verbs.get(word, 0) + confidence
+                    total_weight += confidence
+        
+        # Sort by weight and build top keywords list
+        top_weighted = sorted(weighted_verbs.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_keywords = []
+        for verb, weight_sum in top_weighted:
+            # Count occurrences for display - use simple substring matching
+            count = sum(1 for item in self.action_items if verb in item.lower())
+            normalized_weight = weight_sum / total_weight if total_weight > 0 else 0
+            top_keywords.append((verb, count, normalized_weight))
+        
+        # Return modified analytics with weight-based action markers
+        analytics_copy = self.analytics.copy()
+        analytics_copy['top_action_keywords'] = top_keywords
+        return analytics_copy
+
     @staticmethod
     def _format_duration(seconds):
-        """Format duration in seconds to HH:MM:SS."""
-        if seconds is None:
-            return "Unknown"
+        if seconds is None: return "Unknown"
         total_seconds = int(seconds)
         hours = total_seconds // 3600
         minutes = (total_seconds % 3600) // 60
