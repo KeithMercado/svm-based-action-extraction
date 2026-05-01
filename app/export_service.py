@@ -1060,16 +1060,16 @@ class ExportService:
                 words = [w for w, c, wt in top_keywords]
                 counts = [c for w, c, wt in top_keywords]
                 weights = [wt for w, c, wt in top_keywords]
-                y_pos = list(range(len(words)))[::-1]
-                ax2.barh(y_pos, counts[::-1], color="#a45bd6")
+                y_pos = list(range(len(words)))
+                ax2.barh(y_pos, weights, color="#a45bd6")
                 ax2.set_yticks(y_pos)
-                ax2.set_yticklabels(words[::-1], fontsize=9)
-                ax2.invert_yaxis()
+                ax2.set_yticklabels(words, fontsize=9)
+                ax2.invert_xaxis()
                 ax2.xaxis.set_visible(False)
-                ax2.set_xlim(0, max(1, max(counts) * 1.3))
-                for i, (cnt, wt) in enumerate(zip(counts[::-1], weights[::-1])):
-                    ax2.text(cnt + (max(counts) * 0.02), i, f"{cnt}  ({int(round(wt*100))}%)", va="center", fontsize=9, color="#0f1720")
-                ax2.set_title("Action Keyword Frequency", fontsize=11, pad=8)
+                ax2.set_xlim(0, max(1, max(weights) * 1.3))
+                for i, (wt, cnt) in enumerate(zip(weights, counts)):
+                    ax2.text(wt + (max(weights) * 0.02), i, f"({int(round(wt*100))}%) • {cnt}", va="center", fontsize=9, color="#0f1720")
+                ax2.set_title("Action Markers & Verbs (Confidence-Weighted)", fontsize=11, pad=8)
             else:
                 ax2.text(0.5, 0.5, "No recurring action keywords detected.", ha="center", va="center", fontsize=10, color="#6b7280")
                 ax2.set_axis_off()
@@ -1194,45 +1194,6 @@ class ExportService:
         story.append(Paragraph(f"<b>Meeting Duration:</b> {duration_str}", report_styles["meta"]))
         story.append(Spacer(1, 0.18 * inch))
 
-        if "Analytics Overview" in selected_sections and analytics:
-            story.append(Paragraph("Analytics Overview", report_styles["heading"]))
-            story.append(
-                Paragraph(
-                    escape(
-                        f"Total sentences detected: {analytics['total_sentences']}. "
-                        f"Suggested action items: {analytics['action_count']}. "
-                        f"Information sentences: {analytics['info_count']}."
-                    ),
-                    report_styles["body"],
-                )
-            )
-            if analytics.get("top_action_keywords"):
-                # top_action_keywords is marker-first: (word, count, weight)
-                keyword_text = ", ".join(f"{word} ({count}, {int(round(weight*100))}%)" for word, count, weight in analytics["top_action_keywords"])
-                story.append(Paragraph(f"<b>Common action markers:</b> {escape(keyword_text)}", report_styles["meta"]))
-
-            # Prefer showing separate images side-by-side when available
-            if breakdown_path and keywords_path and os.path.exists(breakdown_path) and os.path.exists(keywords_path):
-                try:
-                    from reportlab.platypus import Table, TableStyle
-
-                    img_left = RLImage(breakdown_path, width=3.0 * inch, height=2.2 * inch)
-                    img_right = RLImage(keywords_path, width=3.5 * inch, height=2.2 * inch)
-                    tbl = Table([[img_left, img_right]], colWidths=[3.0 * inch, 3.5 * inch])
-                    tbl.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
-                    story.append(Spacer(1, 0.08 * inch))
-                    story.append(tbl)
-                    story.append(Spacer(1, 0.12 * inch))
-                except Exception:
-                    story.append(Spacer(1, 0.08 * inch))
-                    if chart_path and os.path.exists(chart_path):
-                        story.append(RLImage(chart_path, width=3.5 * inch, height=2.2 * inch))
-                        story.append(Spacer(1, 0.12 * inch))
-            elif chart_path and os.path.exists(chart_path):
-                story.append(Spacer(1, 0.08 * inch))
-                story.append(RLImage(chart_path, width=3.5 * inch, height=2.2 * inch))
-                story.append(Spacer(1, 0.12 * inch))
-
         for section in order:
             if section not in selected_sections:
                 continue
@@ -1274,6 +1235,28 @@ class ExportService:
                     if analytics.get("top_action_keywords"):
                         keyword_text = ", ".join(f"{word} ({count}, {int(round(weight*100))}%)" for word, count, weight in analytics["top_action_keywords"])
                         story.append(Paragraph(f"<b>Common action markers:</b> {escape(keyword_text)}", report_styles["meta"]))
+
+                    # Prefer showing separate images side-by-side when available
+                    if breakdown_path and keywords_path and os.path.exists(breakdown_path) and os.path.exists(keywords_path):
+                        try:
+                            from reportlab.platypus import Table, TableStyle
+
+                            img_left = RLImage(breakdown_path, width=3.0 * inch, height=2.2 * inch)
+                            img_right = RLImage(keywords_path, width=3.5 * inch, height=2.2 * inch)
+                            tbl = Table([[img_left, img_right]], colWidths=[3.0 * inch, 3.5 * inch])
+                            tbl.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+                            story.append(Spacer(1, 0.08 * inch))
+                            story.append(tbl)
+                            story.append(Spacer(1, 0.12 * inch))
+                        except Exception:
+                            story.append(Spacer(1, 0.08 * inch))
+                            if chart_path and os.path.exists(chart_path):
+                                story.append(RLImage(chart_path, width=3.5 * inch, height=2.2 * inch))
+                                story.append(Spacer(1, 0.12 * inch))
+                    elif chart_path and os.path.exists(chart_path):
+                        story.append(Spacer(1, 0.08 * inch))
+                        story.append(RLImage(chart_path, width=3.5 * inch, height=2.2 * inch))
+                        story.append(Spacer(1, 0.12 * inch))
                 story.append(Spacer(1, 0.1 * inch))
                 continue
 
