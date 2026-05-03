@@ -335,24 +335,10 @@ class CompactActionApp(ctk.CTk):
                 pass
 
             if choice is True:
-                _open_preview_and_close()
+                on_decision(choice)
                 return
 
             on_decision(choice)
-
-        def _open_preview_and_close():
-            try:
-                popup.grab_release()
-            except Exception:
-                pass
-            # Grab transcript text from the main UI's transcript box
-            try:
-                transcript_text = self.transcript_box.get("1.0", "end").strip()
-            except Exception:
-                transcript_text = ""
-            popup.destroy()
-            # Open the interactive PDF preview/editor
-            self.open_pdf_preview(transcript_text)
 
         yes_btn = ctk.CTkButton(
             button_row,
@@ -362,7 +348,7 @@ class CompactActionApp(ctk.CTk):
             fg_color="#1f6aa5",
             hover_color="#1a5280",
             font=("Inter", 13, "bold"),
-            command=_open_preview_and_close,
+            command=lambda: close_with(True),
         )
         yes_btn.pack(side="left", expand=True, padx=(0, 5))
 

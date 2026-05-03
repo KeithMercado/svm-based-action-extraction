@@ -30,6 +30,7 @@ class PDFPreviewWindow(ctk.CTkToplevel):
             summary_text=summary_text,
         )
         self.topics = topics or self.exporter.build_topic_labels(self.clean_transcript_text)
+        self.weight_analytics = None
 
         self.breakdown_path = None
         self.keywords_path = None
@@ -287,9 +288,10 @@ class PDFPreviewWindow(ctk.CTkToplevel):
         """Load and display analytics chart images."""
         try:
             # Build weight-based analytics instead of frequency-based
-            weight_analytics = self._build_weight_based_analytics()
-            self.breakdown_path, self.keywords_path = self.exporter._build_separate_analytics_charts(weight_analytics)
+            self.weight_analytics = self._build_weight_based_analytics()
+            self.breakdown_path, self.keywords_path = self.exporter._build_separate_analytics_charts(self.weight_analytics)
         except Exception:
+            self.weight_analytics = None
             self.breakdown_path, self.keywords_path = (None, None)
 
         if self.breakdown_path and os.path.exists(self.breakdown_path):
@@ -418,8 +420,9 @@ class PDFPreviewWindow(ctk.CTkToplevel):
                         explanation = self.formatter.build_action_explanation(item)
                         why = self.formatter.build_action_flag_reason(item)
                         if explanation:
-                            self.preview_box.insert("end", f"   Task: {explanation}\n")
-                        self.preview_box.insert("end", f"   Why flagged: {why}\n\n")
+                            # Temporary commented out detailed explanations 
+                            # self.preview_box.insert("end", f"   Task: {explanation}\n")
+                            self.preview_box.insert("end", f"{why}\n\n")
                 else:
                     self.preview_box.insert("end", "No action items selected.\n\n")
             elif section_name == "Full Transcript":
@@ -445,6 +448,7 @@ class PDFPreviewWindow(ctk.CTkToplevel):
                 section_order=section_order,
                 include_sections=include_sections,
                 duration_seconds=self.duration_seconds,
+                analytics=self.weight_analytics,
             )
             try:
                 os.startfile(pdf_path)

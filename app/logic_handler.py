@@ -174,8 +174,11 @@ class AppLogic:
                     frames = wf.getnframes()
                     rate = wf.getframerate()
                     if rate > 0:
-                        return float(frames) / float(rate)
-            except Exception:
+                        duration = float(frames) / float(rate)
+                        print(f"[Debug] WAV file duration from header: {duration:.2f}s (frames={frames}, rate={rate})")
+                        return duration
+            except Exception as e:
+                print(f"[Debug] Failed to read WAV duration: {e}")
                 pass
 
         try:
@@ -193,10 +196,14 @@ class AppLogic:
             if result.returncode == 0:
                 value = (result.stdout or "").strip()
                 if value:
-                    return float(value)
-        except Exception:
+                    duration = float(value)
+                    print(f"[Debug] ffprobe duration: {duration:.2f}s")
+                    return duration
+        except Exception as e:
+            print(f"[Debug] ffprobe error: {e}")
             pass
 
+        print(f"[Debug] Could not determine file duration, will use fallback")
         return None
 
     def _ensure_transcript_ready(self):
@@ -472,7 +479,11 @@ class AppLogic:
                     self.view.after(0, self._append_system_text, "PDF generation cancelled.")
                     return
                 self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {result['text']}")
-                self.view.after(0, self._append_system_text, f"PDF generated: {result['pdf_path']}")
+                pdf_path = result.get("pdf_path")
+                if pdf_path:
+                    self.view.after(0, self._append_system_text, f"PDF generated: {pdf_path}")
+                else:
+                    self.view.after(0, self._append_system_text, "PDF preview opened. Use Export in the preview window to generate the PDF.")
                 self.view.after(
                     0,
                     self._append_system_text,
@@ -499,12 +510,20 @@ class AppLogic:
 
     def _process_file_to_pdf(self, file_path, fallback_duration_seconds=None):
         t_start = time.perf_counter()
-        media_duration_seconds = self._get_media_duration_seconds(file_path)
-        if media_duration_seconds is None and fallback_duration_seconds is not None:
+        # For live recordings, prefer the fallback duration (actual elapsed time) over file headers
+        # since file headers may not be reliable for just-saved files
+        if fallback_duration_seconds is not None:
             try:
                 media_duration_seconds = max(0.0, float(fallback_duration_seconds))
+                print(f"[Debug] Using fallback duration: {media_duration_seconds:.2f}s")
             except Exception:
                 media_duration_seconds = None
+        else:
+            media_duration_seconds = self._get_media_duration_seconds(file_path)
+            if media_duration_seconds is not None:
+                print(f"[Debug] Using file duration: {media_duration_seconds:.2f}s")
+            else:
+                print(f"[Debug] No duration available")
 
         t0 = time.perf_counter()
         text = self._transcribe_file(file_path, engine="groq", language="tl", quiet=True)
@@ -538,6 +557,7 @@ class AppLogic:
         return {
             "text": text,
             "preview_opened": True,
+            "pdf_path": None,
             "action_items": preview_action_items,
             "timings": {
                 "transcription": transcribe_time,
@@ -587,6 +607,7 @@ class AppLogic:
         self.update_volume_loop()
 
     def _handle_recording_prompt_decision(self, decision):
+        print(f"[DEBUG_CRITICAL] _handle_recording_prompt_decision invoked with decision={decision}")
         if decision is None:
             self._resume_live_recording()
             return
@@ -602,9 +623,18 @@ class AppLogic:
             return
 
         saved_path = self.audio.save_recorded_audio()
+
+        # Capture duration BEFORE clearing the recording buffer
+        fallback_duration = getattr(self.audio, "elapsed_offset_seconds", None)
+        print(f"[Debug] Captured duration: {fallback_duration} seconds")
+        if fallback_duration is None:
+            fallback_duration = 0.0
+        print(f"[Debug] Using fallback_duration: {fallback_duration} seconds")
+
         self.audio.clear_recording_buffer()
         if not saved_path:
             self._append_system_text("Could not save recording for PDF generation.")
+            print(f"[Error] Save path is None - no audio was saved")
             return
 
         self._set_processing_state(True, "● PROCESSING RECORDING")
@@ -612,16 +642,17 @@ class AppLogic:
 
         def worker():
             try:
-                # Capture duration from audio stream (live recording elapsed time)
-                fallback_duration = getattr(self.audio, "elapsed_offset_seconds", None) or 0.0
-                if fallback_duration < 0.1:  # Ensure we have a reasonable value
-                    fallback_duration = None
+                print(f"[Debug] Worker thread: calling _process_file_to_pdf with duration={fallback_duration}")
                 result = self._process_file_to_pdf(saved_path, fallback_duration_seconds=fallback_duration)
                 if result.get("cancelled"):
                     self.view.after(0, self._append_system_text, "PDF generation cancelled.")
                     return
                 self.view.after(0, self.update_ui_text, f"[00:00] Transcript: {result['text']}")
-                self.view.after(0, self._append_system_text, f"PDF generated: {result['pdf_path']}")
+                pdf_path = result.get("pdf_path")
+                if pdf_path:
+                    self.view.after(0, self._append_system_text, f"PDF generated: {pdf_path}")
+                else:
+                    self.view.after(0, self._append_system_text, "PDF preview opened. Use Export in the preview window to generate the PDF.")
                 self.view.after(
                     0,
                     self._append_system_text,
@@ -724,6 +755,7 @@ class AppLogic:
 
     def handle_stop(self):
         """Pauses recording, then asks whether to generate PDF or continue recording."""
+        print("[DEBUG_CRITICAL] handle_stop called - about to show recording prompt")
         self.audio.stop_stream(save=False)
         self.view.is_recording = False
 
@@ -736,6 +768,7 @@ class AppLogic:
             return
 
         self.view.status_indicator.configure(text="● PAUSED", text_color="#d9a23b")
+        print("[DEBUG_CRITICAL] Showing recording prompt with callback")
         self.view.show_recording_prompt(self._handle_recording_prompt_decision)
 
     def handle_export(self, export_type):

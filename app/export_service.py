@@ -1129,10 +1129,11 @@ class ExportService:
         topics=None,
         section_order=None,
         include_sections=None,
+        analytics=None,
     ):
         """Generate a professional PDF report with narrative summary and Llama action items."""
         clean_content = self.formatter.clean_transcript_text(content)
-        analytics = self.build_transcript_analytics(clean_content, action_items=action_items)
+        analytics = analytics if analytics is not None else self.build_transcript_analytics(clean_content, action_items=action_items)
         chart_path = None
 
         try:
@@ -1269,16 +1270,17 @@ class ExportService:
                             continue
                         story.append(Paragraph(f"<b>[ ]</b> {escape(clean_item)}", report_styles["action_item"]))
                         task_text = self.formatter.build_action_explanation(clean_item)
-                        if task_text:
-                            story.append(
-                                Paragraph(
-                                    f"<i>Task:</i> {escape(task_text)}",
-                                    report_styles["action_help"],
-                                )
-                            )
+                        # Temporarily commented out detailed task explanations to keep the report concise. Can be re-enabled if desired.
+                        # if task_text:
+                        #     story.append(
+                        #         Paragraph(
+                        #             f"<i>Task:</i> {escape(task_text)}",
+                        #             report_styles["action_help"],
+                        #         )
+                        #     )
                         story.append(
                             Paragraph(
-                                f"<i>Why flagged:</i> {escape(self.formatter.build_action_flag_reason(clean_item))}",
+                                f"{escape(self.formatter.build_action_flag_reason(clean_item))}",
                                 report_styles["action_help"],
                             )
                         )
