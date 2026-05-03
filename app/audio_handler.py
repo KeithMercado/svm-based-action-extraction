@@ -170,6 +170,7 @@ class AudioHandler:
         )
 
     def _mixing_loop(self):
+        chunk_count = 0
         while self.is_listening:
             try:
                 system_data = self._system_chunk_queue.get(timeout=0.25)
@@ -205,6 +206,9 @@ class AudioHandler:
                 (mixed_chunk.copy(), system_energy, mic_energy),
             )
             self.all_audio_data.append(mixed_chunk.reshape(-1, 1))
+            chunk_count += 1
+            if chunk_count % 100 == 0:
+                print(f"[Debug] Mixing loop: {chunk_count} chunks accumulated, all_audio_data size: {len(self.all_audio_data)}")
 
     def _create_audio_interface(self):
         if self._audio_interface is None:
@@ -449,9 +453,13 @@ class AudioHandler:
                 self.text_queue.put(f"[System] Live transcription warning: {e}")
 
     def stop_stream(self, save=False, clear_buffer=False):
+        print(f"[Debug] stop_stream called: save={save}, clear_buffer={clear_buffer}, is_listening={self.is_listening}")
         self.is_listening = False
         if self.start_time is not None:
             self.elapsed_offset_seconds = max(0.0, time.time() - self.start_time)
+            print(f"[Debug] Elapsed time calculated: {self.elapsed_offset_seconds} seconds")
+        else:
+            print(f"[Debug] start_time is None, elapsed_offset_seconds not updated")
 
         for stream_attr in ("system_stream", "mic_stream"):
             stream = getattr(self, stream_attr)
@@ -505,19 +513,27 @@ class AudioHandler:
             filename = f"{current_date}_{label}.wav"
             filepath = os.path.join(output_dir, filename)
 
+            # Debug: Check audio data status
+            num_chunks = len(self.all_audio_data)
+            print(f"[Debug] save_recorded_audio: {num_chunks} audio chunks, elapsed_offset_seconds={self.elapsed_offset_seconds}")
+
             # Process the audio data collected during the session
             if self.all_audio_data:
                 full_audio = np.concatenate(self.all_audio_data, axis=0)
+                audio_duration = len(full_audio) / float(self.sample_rate)
+                print(f"[Debug] Audio duration from buffer: {audio_duration:.2f}s, shape: {full_audio.shape}")
 
                 # Convert float32 [-1, 1] to int16 for standard WAV compatibility.
                 int_audio = np.int16(np.clip(full_audio, -1.0, 1.0) * 32767)
                 wav.write(filepath, self.sample_rate, int_audio)
-                print(f"[Debug]: Audio saved successfully as {filename}")
+                print(f"[Debug] Audio saved successfully: {filepath} ({audio_duration:.2f}s)")
                 return filepath
             else:
-                print("[Debug]: No audio data to save.")
+                print(f"[Debug] No audio data to save. (chunks: {num_chunks})")
                 return None
 
         except Exception as e:
             print(f"[Error] Failed to save audio file: {e}")
+            import traceback
+            traceback.print_exc()
             return None
