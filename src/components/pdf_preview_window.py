@@ -107,7 +107,8 @@ class PDFPreviewWindow(ctk.CTkToplevel):
             top_kws = [f"{word} ({count})" for word, count, weight in all_kw[:4]]
             keyword_text = " • ".join(top_kws)
         
-        ctk.CTkLabel(info_frame, text=f"Top Markers:\n{keyword_text}", font=("Inter", 12), text_color="#b7bcc4", wraplength=350, justify="left").pack(anchor="w", pady=(5, 0))
+        self.top_markers_label = ctk.CTkLabel(info_frame, text=f"Top Markers:\n{keyword_text}", font=("Inter", 12), text_color="#b7bcc4", wraplength=350, justify="left")
+        self.top_markers_label.pack(anchor="w", pady=(5, 0))
 
         # Dashboard: Breakdown Chart
         breakdown_frame = ctk.CTkFrame(dashboard_frame, fg_color="#1d2027", corner_radius=10)
@@ -172,7 +173,7 @@ class PDFPreviewWindow(ctk.CTkToplevel):
                 item_frame = ctk.CTkFrame(self.items_scroll, fg_color="#1d2027", corner_radius=8)
                 item_frame.pack(fill="x", pady=4, padx=4)
                 
-                checkbox = ctk.CTkCheckBox(item_frame, text=display_text, variable=variable, font=("Inter", 12), hover_color="#323538", text_color="#b7bcc4")
+                checkbox = ctk.CTkCheckBox(item_frame, text=display_text, variable=variable, font=("Inter", 12), hover_color="#323538", text_color="#b7bcc4", command=self._on_action_selection_changed)
                 checkbox.pack(anchor="w", padx=10, pady=10)
                 
                 self.cb_vars.append((variable, item))
@@ -319,12 +320,38 @@ class PDFPreviewWindow(ctk.CTkToplevel):
         self._bind_chart_preview(self.breakdown_label, self.breakdown_path, "Transcript Breakdown")
         self._bind_chart_preview(self.keywords_label, self.keywords_path, "Action Markers")
 
-        info_count = max(0, self.total_sentences - len(self.action_items)) if self.total_sentences else None
-        if info_count is None:
-            stats_text = f"Action items: {len(self.action_items)}"
+        self._update_stats_label()
+
+    def _update_stats_label(self):
+        """Update the session intelligence stats based on selected action items."""
+        # Count selected items
+        selected_count = sum(1 for var, _ in self.cb_vars if var.get())
+        unchecked_count = len(self.cb_vars) - selected_count
+        original_info_count = max(0, self.total_sentences - len(self.action_items)) if self.total_sentences else None
+        
+        # Calculate adjusted info count (unchecked items are treated as info)
+        if original_info_count is not None:
+            adjusted_info_count = original_info_count + unchecked_count
+            adjusted_total = selected_count + adjusted_info_count
+            stats_text = f"Sentences: {adjusted_total}  •  Action: {selected_count}  •  Info: {adjusted_info_count}"
         else:
-            stats_text = f"Sentences: {self.total_sentences}  •  Action: {len(self.action_items)}  •  Info: {info_count}"
+            stats_text = f"Action items: {selected_count}"
+        
         self.stats_label.configure(text=stats_text)
+        
+        # Update top markers based on selected items
+        self._update_top_markers_label()
+
+    def _update_top_markers_label(self):
+        """Update the top markers label based on selected action items."""
+        # Get keywords from the current analytics (which are updated based on selected items)
+        all_kw = self.analytics.get("top_action_keywords", []) or self.analytics.get("all_action_keywords", []) or []
+        keyword_text = "None"
+        if all_kw:
+            top_kws = [f"{word} ({count})" for word, count, weight in all_kw[:4]]
+            keyword_text = " • ".join(top_kws)
+        
+        self.top_markers_label.configure(text=f"Top Markers:\n{keyword_text}")
 
     def _bind_chart_preview(self, widget, image_path, title):
         if widget is None: return
@@ -358,6 +385,12 @@ class PDFPreviewWindow(ctk.CTkToplevel):
         image_label.pack(fill="both", expand=True, padx=8, pady=(4, 8))
 
         popup.bind("<Escape>", lambda _event: popup.destroy())
+
+    def _on_action_selection_changed(self):
+        """Update preview and charts when an action item checkbox is toggled."""
+        self._load_analytics_images()
+        self._update_stats_label()
+        self._render_preview()
 
     def _render_preview(self):
         """Render the PDF preview based on selected sections and items."""
@@ -415,14 +448,8 @@ class PDFPreviewWindow(ctk.CTkToplevel):
                             if item_idx < len(self.model_weights):
                                 confidence = self.model_weights[item_idx]
                         self.preview_box.insert("end", f"{idx}. {item}\n")
-                        if confidence > 0:
-                            self.preview_box.insert("end", f"   Evidence weight: {confidence:.2%}\n")
-                        explanation = self.formatter.build_action_explanation(item)
-                        why = self.formatter.build_action_flag_reason(item)
-                        if explanation:
-                            # Temporary commented out detailed explanations 
-                            # self.preview_box.insert("end", f"   Task: {explanation}\n")
-                            self.preview_box.insert("end", f"{why}\n\n")
+                        why = self.formatter.build_action_flag_reason(item, confidence if confidence > 0 else None)
+                        self.preview_box.insert("end", f"   {why}\n\n")
                 else:
                     self.preview_box.insert("end", "No action items selected.\n\n")
             elif section_name == "Full Transcript":
@@ -442,6 +469,7 @@ class PDFPreviewWindow(ctk.CTkToplevel):
             pdf_path = self.exporter.generate_pdf(
                 content=self.clean_transcript_text,
                 action_items=selected,
+                action_details=self.action_details,
                 summary=self.summary_text,
                 source_file=self.source_file,
                 topics=self.topics,
@@ -479,46 +507,75 @@ class PDFPreviewWindow(ctk.CTkToplevel):
 
     def _build_weight_based_analytics(self):
         """Build analytics dict with weight-based action marker data.
-        Focuses on action verbs and initiation markers like: paki, should, do, make, submit, etc.
+        Uses the exact action markers detected during confidence scoring.
         """
-        import re
-        
-        # Action markers and verbs that initiate tasks
-        action_verbs = {
-            'paki', 'pakisend', 'paki-send', 'pakisubmit', 'pakireview', 'pakiprepare',
-            'should', 'must', 'need', 'please', 'can', 'could', 'will',
-            'do', 'make', 'create', 'prepare', 'submit', 'send', 'draft',
-            'review', 'update', 'finalize', 'complete', 'develop', 'build',
-            'run', 'execute', 'implement', 'arrange', 'schedule', 'close',
-            'due', 'ipasa', 'buksan', 'isara', 'ilagay', 'gawin',
-            'document', 'outline', 'provide', 'analyze', 'schedule'
-        }
-        
-        # Extract action verbs from action items, weighted by confidence
         weighted_verbs = {}
+        verb_counts = {}
         total_weight = 0
         
-        for item, confidence in zip(self.action_items, self.model_weights):
-            # Extract words and check if they're action verbs
-            words = re.findall(r'\b[a-z]+\b', item.lower())
+        for idx, (item, confidence) in enumerate(zip(self.action_items, self.model_weights)):
+            # Skip items that have been unchecked by the user
+            if idx < len(self.cb_vars) and not self.cb_vars[idx][0].get():
+                continue
+                
+            detail = self.action_details[idx] if idx < len(self.action_details) else {}
+            basis = detail.get("basis", "")
             
-            for word in words:
-                if word in action_verbs:
+            markers = []
+            if basis.startswith("Action markers found: "):
+                markers_str = basis.replace("Action markers found: ", "")
+                markers = [m.strip("' ") for m in markers_str.split(",")]
+            else:
+                # Fallback: Assume the first valid word is the action marker if none explicitly matched
+                import re
+                words = re.findall(r'\b[a-z]+\b', item.lower())
+                stopwords = {
+                    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'to', 'for', 'of', 'and', 'or', 
+                    'in', 'on', 'at', 'by', 'with', 'ang', 'mga', 'ng', 'na', 'sa', 'kay', 'si', 
+                    'it', 'this', 'that', 'i', 'you', 'he', 'she', 'we', 'they', 'your', 'my'
+                }
+                valid_words = [w for w in words if w not in stopwords]
+                if valid_words:
+                    markers = [valid_words[0]]
+                
+            for word in markers:
+                if word:
                     weighted_verbs[word] = weighted_verbs.get(word, 0) + confidence
+                    verb_counts[word] = verb_counts.get(word, 0) + 1
                     total_weight += confidence
         
         # Sort by weight and build top keywords list
         top_weighted = sorted(weighted_verbs.items(), key=lambda x: x[1], reverse=True)[:5]
         top_keywords = []
         for verb, weight_sum in top_weighted:
-            # Count occurrences for display - use simple substring matching
-            count = sum(1 for item in self.action_items if verb in item.lower())
-            normalized_weight = weight_sum / total_weight if total_weight > 0 else 0
-            top_keywords.append((verb, count, normalized_weight))
+            # Count occurrences based on how many checked items had this marker
+            count = verb_counts.get(verb, 1)
+            # Use the actual confidence percentage (averaged if multiple occurrences) instead of a normalized fraction
+            average_confidence = weight_sum / count if count > 0 else 0
+            top_keywords.append((verb, count, average_confidence))
         
         # Return modified analytics with weight-based action markers
         analytics_copy = self.analytics.copy()
         analytics_copy['top_action_keywords'] = top_keywords
+        
+        # Update breakdown counts based on selected items
+        if self.cb_vars:
+            selected_count = sum(1 for var, _ in self.cb_vars if var.get())
+            unchecked_count = len(self.cb_vars) - selected_count
+            original_info_count = max(0, self.total_sentences - len(self.action_items))
+            
+            analytics_copy['action_count'] = selected_count
+            analytics_copy['info_count'] = original_info_count + unchecked_count
+            # Ensure the pie chart center (total segments) reflects the sum correctly
+            analytics_copy['total_sentences'] = selected_count + original_info_count + unchecked_count
+        else:
+            original_info_count = max(0, self.total_sentences - len(self.action_items))
+            analytics_copy['action_count'] = len(self.action_items)
+            analytics_copy['info_count'] = original_info_count
+            analytics_copy['total_sentences'] = len(self.action_items) + original_info_count
+        
+        # Update self.analytics so the text preview matches the chart
+        self.analytics = analytics_copy
         return analytics_copy
 
     @staticmethod
