@@ -323,20 +323,56 @@ class ReportContentFormatter:
         cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
         return cleaned_text
 
-    def build_action_flag_reason(self, action_item):
+    def _score_action_evidence(self, action_item):
+        """Assign a conservative evidence score and basis text to an action item."""
+        item = re.sub(r"\s+", " ", (action_item or "")).strip().lower()
+        if not item:
+            return 0.0, "No action text was available."
+
+        score = 0.12
+        found_markers = []
+
+        action_verb_pattern = re.compile(
+            r"\b(please|pwede|paki|can you|could you|need to|must|should|due|"
+            r"submit|send|prepare|review|finalize|update|document|record|log|check|coordinate|"
+            r"schedule|arrange|execute|create|make|build|run|close|isolate|investigate|"
+            r"implement|validate|configure|analyze|audit|approve|reject|merge|revert|"
+            r"release|publish|assign|notify|inform|alert|confirm|clarify|explain|summarize|"
+            r"read|write|call|test|deploy|fix|produce|handle|simulate|open|complete|design|form|begin|start|"
+            r"ipasa|buksan|isara|ilagay|tawagan|asikaso|ayos|gawin|tumalo|tumalon|basahin|magbasa|magsulat|"
+            r"isulat|tingnan|kunin|sabihin|tapusin|simulan|tulungan|bayaran|ipadala|ibigay)\b",
+            flags=re.IGNORECASE,
+        )
+
+        matches = action_verb_pattern.findall(item)
+        if matches:
+            found_markers.extend([m.lower() for m in matches])
+            score += 0.40
+
+        if len(item.split()) >= 6:
+            score += 0.08
+
+        found_markers = list(set(found_markers))
+        score = min(score, 0.99)
+        
+        if found_markers:
+            basis_text = "Action markers found: " + ", ".join(f"'{m}'" for m in found_markers)
+        else:
+            basis_text = "Matched action-item pattern."
+            
+        return score, basis_text
+
+    def build_action_flag_reason(self, action_item, confidence=None):
         """Return a conservative explanation for why an action item was flagged."""
         item = (action_item or "").strip()
         if not item:
             return "No action text was available for analysis."
 
-        lower = item.lower()
-        if any(marker in lower for marker in ["please", "pwede", "paki", "pakis", "can you", "could you", "need to", "should", "must"]):
-            return "Flagged because the utterance contains a request or directive."
-
-        if any(marker in lower for marker in ["due", "deadline", "by ", "before ", "deliver", "submit", "send", "prepare", "review"]):
-            return "Flagged because it describes a task or follow-up that implies completion."
-
-        return "Flagged because it matches the classifier's action-item pattern without adding assumptions."
+        score, basis_text = self._score_action_evidence(item)
+        if confidence is None:
+            confidence = score
+            
+        return f"Confidence: {confidence:.0%}. Basis: {basis_text}"
 
 
 class ReportStyleFactory:
@@ -469,63 +505,61 @@ class ExportService:
         return "english"
 
     def _split_action_phrase_chunks(self, text_value):
-        """Split a compound transcript chunk into separate action phrases when possible."""
+        """Strictly split compound actions only when distinct action verbs exist in both parts."""
         text_value = re.sub(r"\s+", " ", (text_value or "")).strip()
         if not text_value:
             return []
 
-        chunks = [text_value]
-        split_patterns = [
-            r"\b(?:and then|then|at saka|saka|tapos|after that|next|and also|plus|but then|however|pero|but)\b",
-            r"\b(?:and|at|or)\b",
-            r"\s*[;,]\s*",
-        ]
-
-        for pattern in split_patterns:
-            next_chunks = []
-            for chunk in chunks:
-                parts = [part.strip(" ,;:-") for part in re.split(pattern, chunk, flags=re.IGNORECASE) if part.strip(" ,;:-")]
-                if len(parts) > 1:
-                    next_chunks.extend(parts)
-                else:
-                    cleaned = chunk.strip(" ,;:-")
-                    if cleaned:
-                        next_chunks.append(cleaned)
-            chunks = next_chunks
-
-        marker_pattern = re.compile(
-            r"\b(please|pwede|paki|can you|could you|need to|must|should|due|submit|send|prepare|review|finalize|update|document|record|log|check|coordinate|schedule|arrange|ipasa|buksan|isara|ilagay|tawagan|asikaso|ayos|gawin)\b",
+        action_verb_pattern = re.compile(
+            r"\b(please|pwede|paki|can you|could you|need to|must|should|due|"
+            r"submit|send|prepare|review|finalize|update|document|record|log|check|coordinate|"
+            r"schedule|arrange|execute|create|make|build|run|close|isolate|investigate|"
+            r"implement|validate|configure|analyze|audit|approve|reject|merge|revert|"
+            r"release|publish|assign|notify|inform|alert|confirm|clarify|explain|summarize|"
+            r"read|write|call|test|deploy|fix|produce|handle|simulate|open|complete|design|form|begin|start|"
+            r"ipasa|buksan|isara|ilagay|tawagan|asikaso|ayos|gawin|tumalo|tumalon|basahin|magbasa|magsulat|"
+            r"isulat|tingnan|kunin|sabihin|tapusin|simulan|tulungan|bayaran|ipadala|ibigay)\b",
             flags=re.IGNORECASE,
         )
 
-        split_chunks = []
-        for chunk in chunks:
-            matches = list(marker_pattern.finditer(chunk))
-            if len(matches) <= 1:
-                split_chunks.append(chunk)
-                continue
+        split_pattern = re.compile(
+            r"(\b(?:and then|then|at saka|saka|tapos|after that|next|and also|plus|but then|however|pero|but|and|at|or)\b|\s*[;,]\s*)",
+            flags=re.IGNORECASE
+        )
 
-            last_idx = 0
-            for match in matches:
-                start = match.start()
-                if start == 0:
-                    continue
-                piece = chunk[last_idx:start].strip(" ,;:-")
-                if piece:
-                    split_chunks.append(piece)
-                last_idx = start
-
-            tail = chunk[last_idx:].strip(" ,;:-")
-            if tail:
-                split_chunks.append(tail)
+        tokens = split_pattern.split(text_value)
+        chunks = []
+        current_chunk = []
+        
+        for i in range(0, len(tokens), 2):
+            part = tokens[i]
+            delimiter = tokens[i+1] if i+1 < len(tokens) else ""
+            
+            current_chunk.append(part)
+            
+            left_text = "".join(current_chunk)
+            right_text = "".join(tokens[i+2:])
+            
+            if delimiter and action_verb_pattern.search(left_text) and action_verb_pattern.search(right_text):
+                chunks.append(left_text.strip(" ,;:-"))
+                current_chunk = []
+            else:
+                current_chunk.append(delimiter)
+                
+        if current_chunk:
+            chunks.append("".join(current_chunk).strip(" ,;:-"))
 
         cleaned = []
         seen = set()
-        for chunk in split_chunks:
-            normalized = re.sub(r"\s+", " ", chunk).strip()
-            normalized = re.sub(r"\b(?:and|at|or)\s*$", "", normalized, flags=re.IGNORECASE).strip()
+        for chunk in chunks:
+            normalized = re.sub(r"\s+", " ", chunk).strip(" ,;:-")
+            normalized = re.sub(r"^(?:and then|then|at saka|saka|tapos|after that|next|and also|plus|but then|however|pero|but|and|at|or)\s+", "", normalized, flags=re.IGNORECASE).strip()
+            
             if len(normalized.split()) <= 1:
                 continue
+            if not action_verb_pattern.search(normalized):
+                continue
+                
             key = normalized.lower()
             if key in seen:
                 continue
@@ -534,34 +568,6 @@ class ExportService:
 
         return cleaned if cleaned else [text_value]
 
-    def _score_action_evidence(self, action_item):
-        """Assign a conservative evidence score and basis text to an action item."""
-        item = re.sub(r"\s+", " ", (action_item or "")).strip().lower()
-        if not item:
-            return 0.0, "No action text was available."
-
-        score = 0.12
-        basis = []
-
-        if any(marker in item for marker in ["please", "pwede", "paki", "can you", "could you", "need to", "must", "should"]):
-            score += 0.34
-            basis.append("request/directive cue")
-
-        if any(marker in item for marker in ["due", "deadline", "by ", "before ", "eod", "tomorrow", "today"]):
-            score += 0.22
-            basis.append("timing/deadline cue")
-
-        if any(marker in item for marker in ["submit", "send", "prepare", "review", "finalize", "update", "document", "record", "log", "check", "coordinate", "schedule", "arrange", "ipasa", "buksan", "isara", "ilagay", "tawagan", "asikaso", "ayos", "gawin"]):
-            score += 0.24
-            basis.append("task/action verb cue")
-
-        if len(item.split()) >= 6:
-            score += 0.08
-            basis.append("sufficient context")
-
-        score = min(score, 0.99)
-        basis_text = "; ".join(basis) if basis else "Matched the action-item pattern."
-        return score, basis_text
 
     def _build_language_aware_topic_labels(self, transcript_text, max_topics=5):
         """Build transcript-derived topic labels that preserve the transcript language."""
@@ -604,25 +610,21 @@ class ExportService:
         # Regex fallback (also used as safety net when model output is invalid).
         def fallback_candidates():
             markers = [
-                r"\bplease\b",
-                r"\bpwede\b",
-                r"\bpaki\b",
-                r"\bcan you\b",
-                r"\bcould you\b",
-                r"\bneed to\b",
-                r"\bmust\b",
-                r"\bshould\b",
-                r"\bdue\b",
-                r"\bsubmit\b",
-                r"\bsend\b",
-                r"\bprepare\b",
-                r"\breview\b",
-                r"\bipasa\b",
-                r"\bbuksan\b",
-                r"\bisara\b",
-                r"\bilagay\b",
-                r"\bupdate\b",
-                r"\bfinalize\b",
+                r"\bplease\b", r"\bpwede\b", r"\bpaki\b", r"\bcan you\b", r"\bcould you\b",
+                r"\bneed to\b", r"\bmust\b", r"\bshould\b", r"\bdue\b", r"\bsubmit\b",
+                r"\bsend\b", r"\bprepare\b", r"\breview\b", r"\bipasa\b", r"\bbuksan\b",
+                r"\bisara\b", r"\bilagay\b", r"\bupdate\b", r"\bfinalize\b", r"\bexecute\b",
+                r"\bcreate\b", r"\bmake\b", r"\bbuild\b", r"\brun\b", r"\bclose\b",
+                r"\bisolate\b", r"\binvestigate\b", r"\bimplement\b", r"\bvalidate\b",
+                r"\bconfigure\b", r"\banalyze\b", r"\baudit\b", r"\bapprove\b", r"\breject\b",
+                r"\bmerge\b", r"\brevert\b", r"\brelease\b", r"\bpublish\b", r"\bassign\b",
+                r"notify", r"inform", r"alert", r"confirm", r"clarify",
+                r"explain", r"summarize", r"read", r"write", r"call",
+                r"test", r"deploy", r"fix", r"produce", r"handle", r"simulate",
+                r"open", r"complete", r"design", r"form", r"begin", r"start",
+                r"tawagan", r"asikaso", r"ayos", r"gawin", r"tumalo", r"tumalon", 
+                r"basahin", r"magbasa", r"magsulat", r"isulat", r"tingnan", r"kunin", r"sabihin", 
+                r"tapusin", r"simulan", r"tulungan", r"bayaran", r"ipadala", r"ibigay"
             ]
             pattern = re.compile("|".join(markers), flags=re.IGNORECASE)
             out = []
@@ -645,13 +647,18 @@ class ExportService:
                 system_prompt = (
                     "You extract action items from meeting transcripts. "
                     "Return JSON only with key 'items'. Each item must have keys 'text' and 'why'. "
-                    "CRITICAL: 'text' must be an exact substring from the transcript and should contain only the action phrase/sentence, "
-                    "not surrounding greetings or unrelated discussion. "
-                    "If uncertain, exclude it."
+                    "CRITICAL RULES:\n"
+                    "1. 'text' must be an exact substring from the transcript.\n"
+                    "2. Extract ONLY ASSIGNED TASKS (directives given to someone). DO NOT include general statements, explanations, definitions, or observations (e.g., 'Code is for humans to read' is NOT an action item).\n"
+                    "3. If a speaker lists MULTIPLE distinct assigned actions (e.g., 'do X, jump 3 times, and close Y'), SPLIT them into separate JSON items.\n"
+                    "4. If uncertain, exclude it."
                 )
                 user_prompt = (
                     "Transcript:\n"
-                    f"{clean_text[:12000]}\n\n"
+                    # [IMPROVEMENT]: Increased slice from 12k to 28k chars. 
+                    # This ensures that for longer meetings, the model can read much more 
+                    # of the transcript without cutting off the later parts where actions might occur.
+                    f"{clean_text[:28000]}\n\n"
                     "Return format:\n"
                     '{"items":[{"text":"...","why":"..."}]}'
                 )
@@ -663,7 +670,10 @@ class ExportService:
                         {"role": "user", "content": user_prompt},
                     ],
                     temperature=0,
-                    max_completion_tokens=500,
+                    # [IMPROVEMENT]: Increased max completion tokens from 500 to 2000.
+                    # This prevents the LLM from halting midway if it needs to output 
+                    # a large number of action items detected in a long video.
+                    max_completion_tokens=2000,
                 )
 
                 content = result.choices[0].message.content if result.choices else ""
@@ -703,7 +713,10 @@ class ExportService:
                     continue
                 seen.add(norm)
 
-                score, basis_text = self._score_action_evidence(chunk)
+                score, basis_text = self.formatter._score_action_evidence(chunk)
+                # Capitalize the first letter of the action item
+                chunk = chunk[0].upper() + chunk[1:] if chunk else chunk
+                
                 action_items.append(chunk)
                 details.append(
                     {
@@ -760,11 +773,13 @@ class ExportService:
                 "configure", "analyze", "audit", "approve", "reject", "merge", "revert",
                 "fix", "patch", "release", "publish", "assign", "reassign", "escalate",
                 "notify", "inform", "alert", "confirm", "clarify", "explain", "summarize",
+                "start", "begin",
                 # Tagalog action verbs
                 "sara", "bukas", "tawag", "ilipat", "tulong", "asikaso", "ayos", "gawa",
                 "ipasa", "buksan", "isara", "ilagay", "ipaalam", "iupdate", "icheck",
                 "bigyan", "bayaran", "gatarin", "tiyakin", "suriin", "basahin", "sulatin",
                 "sabihin", "tanungin", "tumingin", "magsimula", "magtrabaho", "magpatibay",
+                "magbasa", "magsulat", "isulat", "simulan",
                 # Taglish blend
                 "idraft", "ireview", "isubmit", "idocument", "icoordinate",
             }
@@ -868,11 +883,47 @@ class ExportService:
     def build_topic_labels(self, transcript_text, max_topics=5):
         """Build topic labels for preview/PDF export.
 
-        Prefer the semantic segmenter when available, then fall back to short transcript-derived labels.
+        Prefer the LLM when available, then semantic segmenter, then fall back to short transcript-derived labels.
         """
         clean_text = self.formatter.clean_transcript_text(transcript_text)
         if not clean_text:
             return []
+
+        try:
+            import os
+            from groq import Groq
+            api_key = os.getenv("GROQ_API_KEY")
+            if api_key:
+                client = Groq(api_key=api_key)
+                model = os.getenv("GROQ_SUMMARY_MODEL", "llama-3.1-8b-instant")
+                
+                system_prompt = (
+                    "You are a professional secretary extracting the key topics of a meeting. "
+                    "Return ONLY a comma-separated list of short topic labels (2-5 words each). "
+                    "CRITICAL RULES:\n"
+                    "1. Extract the key topics segmented by the phases of the conversation (e.g. Assignment Briefing, Technical Requirements, Conclusion).\n"
+                    "2. The language of the topic MUST match the language of the transcript (English, Tagalog, or Taglish). Make it sound professional and clean.\n"
+                    "3. Do not use numbers or bullets. Example output: 'System Architecture, Subtasks, Grading Criteria'"
+                    "4. Maximum of 5 topics only! If there are more than 5 topics, choose the most important ones."
+                    "5. Make it simple and straight to the point, dont make it long."
+                )
+                user_prompt = f"Transcript:\n{clean_text[:28000]}\n\nExtract the key topics/phases of the conversation (max {max_topics}):"
+                
+                result = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.3,
+                    max_completion_tokens=150,
+                )
+                content = result.choices[0].message.content if result.choices else ""
+                topics = [t.strip().strip("-*1234567890. ") for t in content.split(",") if t.strip()]
+                if topics:
+                    return topics[:max_topics]
+        except Exception:
+            pass
 
         style = self._detect_transcript_style(clean_text)
 
@@ -1064,6 +1115,7 @@ class ExportService:
                 ax2.barh(y_pos, weights, color="#a45bd6")
                 ax2.set_yticks(y_pos)
                 ax2.set_yticklabels(words, fontsize=9)
+                ax2.invert_yaxis()
                 ax2.invert_xaxis()
                 ax2.xaxis.set_visible(False)
                 ax2.set_xlim(0, max(1, max(weights) * 1.3))
@@ -1121,6 +1173,7 @@ class ExportService:
         self,
         content,
         action_items=None,
+        action_details=None,
         summary=None,
         duration_seconds=None,
         start_time=None,
@@ -1269,18 +1322,13 @@ class ExportService:
                         if not clean_item:
                             continue
                         story.append(Paragraph(f"<b>[ ]</b> {escape(clean_item)}", report_styles["action_item"]))
-                        task_text = self.formatter.build_action_explanation(clean_item)
-                        # Temporarily commented out detailed task explanations to keep the report concise. Can be re-enabled if desired.
-                        # if task_text:
-                        #     story.append(
-                        #         Paragraph(
-                        #             f"<i>Task:</i> {escape(task_text)}",
-                        #             report_styles["action_help"],
-                        #         )
-                        #     )
+                        
+                        detail = next((d for d in (action_details or []) if d.get("item") == clean_item), {})
+                        confidence = float(detail.get("weight", 0.0)) if detail.get("weight") else None
+                        
                         story.append(
                             Paragraph(
-                                f"{escape(self.formatter.build_action_flag_reason(clean_item))}",
+                                f"{escape(self.formatter.build_action_flag_reason(clean_item, confidence))}",
                                 report_styles["action_help"],
                             )
                         )
