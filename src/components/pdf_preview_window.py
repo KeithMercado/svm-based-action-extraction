@@ -166,16 +166,21 @@ class PDFPreviewWindow(ctk.CTkToplevel):
 
         if self.action_items:
             for idx, item in enumerate(self.action_items, 1):
-                variable = ctk.BooleanVar(value=True)
-                confidence = self.model_weights[idx - 1] if idx - 1 < len(self.model_weights) else 0.0
+                # Prefer the extractor-provided detail if available
+                detail = next((d for d in self.action_details if d.get("item") == item), {}) if self.action_details else {}
+                confidence = float(detail.get("weight", 0.0)) if detail.get("weight") is not None else (self.model_weights[idx - 1] if idx - 1 < len(self.model_weights) else 0.0)
+                # If extractor included a 'suggested' flag, use it; otherwise derive from confidence >= 0.50
+                suggested = detail.get("suggested") if "suggested" in detail else (confidence >= 0.50)
+
+                variable = ctk.BooleanVar(value=bool(suggested))
                 display_text = f"{item} (Conf: {confidence:.0%})" if confidence > 0 else item
-                
+
                 item_frame = ctk.CTkFrame(self.items_scroll, fg_color="#1d2027", corner_radius=8)
                 item_frame.pack(fill="x", pady=4, padx=4)
-                
+
                 checkbox = ctk.CTkCheckBox(item_frame, text=display_text, variable=variable, font=("Inter", 12), hover_color="#323538", text_color="#b7bcc4", command=self._on_action_selection_changed)
                 checkbox.pack(anchor="w", padx=10, pady=10)
-                
+
                 self.cb_vars.append((variable, item))
         else:
             none_label = ctk.CTkLabel(self.items_scroll, text="No action items detected.", font=("Inter", 12), text_color="#b7bcc4")
